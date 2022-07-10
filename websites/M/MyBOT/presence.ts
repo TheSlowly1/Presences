@@ -1,142 +1,162 @@
 const presence = new Presence({
-  clientId: "645079866710163477"
-});
-
-const browsingStamp = Math.floor(Date.now() / 1000);
+		clientId: "719604498389270599",
+	}),
+	browsingTimestamp = Math.floor(Date.now() / 1000),
+	presenceData: PresenceData = {
+		largeImageKey: "mybot",
+		startTimestamp: browsingTimestamp,
+	};
 
 presence.on("UpdateData", () => {
-  const doc = document.location,
-    path = doc.pathname,
-    hash = doc.hash,
-    owo = path.split("/"),
-    presenceData: presenceData = {
-      largeImageKey: "maisbos_1_"
-    };
-  if (path === "/") {
-    if (document.querySelector(".tab-item.active").id == "homeLink") {
-      presenceData.details = "Viendo la página principal";
-      presenceData.startTimestamp = browsingStamp;
-    } else if (document.querySelector(".tab-item.active").id == "guideLink") {
-      presenceData.details = "Viendo la lista de guías";
-      presenceData.startTimestamp = browsingStamp;
-    } else if (document.querySelector(".tab-item.active").id == "toolsLink") {
-      presenceData.details = "Viendo la lista de herramientas";
-      presenceData.startTimestamp = browsingStamp;
-    } else if (document.querySelector(".tab-item.active").id == "otherLink") {
-      presenceData.details = `Viendo la lista de otros`;
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (owo[1] === "leaderboard") {
-    presenceData.details = "Viendo tabla de clasificaciones de usuarios";
-    presenceData.state = `Página ${
-      path.split("?page=")[1] ? path.split("?page=")[1] : "1"
-    }`;
-    presenceData.startTimestamp = browsingStamp;
-  } else if (owo[1] === "logros") {
-    presenceData.details = "Viendo la lista de logros";
-    presenceData.startTimestamp = browsingStamp;
-  } else if (owo[1] === "logro") {
-    presenceData.details = `Viendo un logro (#${document
-      .querySelector("kbd")
-      .innerHTML.slice(10)})`;
-    presenceData.state = `${document.querySelector(".card-title").innerHTML}`;
-    presenceData.startTimestamp = browsingStamp;
-  } else if (owo[1] === "perfil") {
-    if (owo[2] === "editar-perfil") {
-      presenceData.details = "Editando su perfil";
-      presenceData.startTimestamp = browsingStamp;
-    } else {
-      presenceData.details = "Viendo su perfil";
-      presenceData.state = document.querySelector(".username").innerHTML.trim();
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (owo[1] === "guia") {
-    presenceData.details = "Viendo una guía";
-    if (owo[2] === "mybot") {
-      presenceData.state = `MyBOT - ${document.querySelector("h1").innerText}`;
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "sqlite") {
-      presenceData.state = `SQlite - ${document.querySelector("h1").innerText}`;
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "mybot-op") {
-      presenceData.state = `MyBOT OP - ${
-        document.querySelector("h1").innerText
-      }`;
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "glitch") {
-      presenceData.state = `Glitch - ${document.querySelector("h1").innerText}`;
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "heroku") {
-      presenceData.state = `Heroku - ${document.querySelector("h1").innerText}`;
-      presenceData.startTimestamp = browsingStamp;
-    } else {
-      presenceData.state = "Guía desconocida";
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (owo[1] === "u") {
-    presenceData.details = "Viendo un perfil";
-    presenceData.state = document.querySelector(".username").innerHTML.trim();
-    presenceData.startTimestamp = browsingStamp;
-  } else if (owo[1] === "mybotlist") {
-    if (owo[2] === "bot") {
-      if (owo[3] === "add") {
-        presenceData.details = "Añadiendo un bot";
-        presenceData.startTimestamp = browsingStamp;
-      } else {
-        presenceData.details = "Viendo un bot";
-        presenceData.state = document.querySelector(".card-title").innerHTML;
-        presenceData.startTimestamp = browsingStamp;
-      }
-    } else if (owo[2] === "user") {
-      presenceData.details = "Viendo un usuario";
-      presenceData.state = document.querySelectorAll(
-        ".card-title"
-      )[1].innerHTML;
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "me") {
-      if (owo[3] === "edit") {
-        presenceData.details = "Editando su perfil";
-        presenceData.startTimestamp = browsingStamp;
-      } else {
-        presenceData.details = "Viendo su perfil";
-        presenceData.startTimestamp = browsingStamp;
-      }
-    } else {
-      presenceData.details = "Viendo la lista de bots";
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (
-    owo[1] === "app" &&
-    owo[2] === "verificador" &&
-    owo[3] === "perfil"
-  ) {
-    if (hash === "#modal-reglas") {
-      presenceData.details = "Leyendo reglas de la comunidad";
-      presenceData.startTimestamp = browsingStamp;
-    } else if (hash === "#clave") {
-      presenceData.details = "Obteniendo clave de verificación";
-      presenceData.startTimestamp = browsingStamp;
-    } else {
-      presenceData.details = "Verificando usuario";
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (owo[1] === "comunidad") {
-    if (owo[2] === "reglas") {
-      presenceData.details = "Leyendo reglas de la comunidad";
-      presenceData.startTimestamp = browsingStamp;
-    } else if (owo[2] === "videos") {
-      presenceData.details = "Viendo videos de la comunidad";
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else {
-    presenceData.details = "Navegando...";
-    presenceData.startTimestamp = browsingStamp;
-  }
+	const route = document.location.pathname.split("/");
 
-  if (presenceData.details == null) {
-    presence.setTrayTitle();
-    presence.setActivity();
-  } else {
-    presence.setActivity(presenceData);
-  }
+	if (!route[1]) presenceData.details = "Viendo la página principal";
+	else {
+		switch (route[1]) {
+			case "guias": {
+				presenceData.details = "Viendo las guías";
+				break;
+			}
+			case "guia": {
+				presenceData.details = "Viendo la guía:";
+				switch (route[2]) {
+					case "mybot": {
+						presenceData.state = "MyBOT";
+						break;
+					}
+					case "sqlite": {
+						presenceData.state = "SQLite";
+						break;
+					}
+					case "mybot-op": {
+						presenceData.state = "MyBOT OP";
+						break;
+					}
+					default: {
+						presenceData.state = route[2]
+							.replaceAll("-", "")
+							.replace(/^[a-z]/i, c => c.toUpperCase());
+					}
+				}
+
+				break;
+			}
+			case "tools": {
+				presenceData.details = "Viendo las herramientas";
+				presenceData.state = "de desarrollo";
+
+				break;
+			}
+			case "otros": {
+				presenceData.details = "Viendo otras guías";
+				break;
+			}
+			case "logros": {
+				presenceData.details = "Viendo los logros";
+				break;
+			}
+			case "logro": {
+				presenceData.details = "Viendo el logro:";
+				presenceData.state = document.querySelector(
+					".card-title.text-bold.mb-2"
+				).textContent;
+
+				break;
+			}
+			case "team": {
+				if (!route[2]) presenceData.details = "Viendo al equipo";
+				else {
+					switch (route[2]) {
+						case "roles": {
+							presenceData.details = "Viendo los roles";
+							break;
+						}
+						case "banderas": {
+							presenceData.details = "Viendo las banderas";
+							break;
+						}
+						case "reglas":
+							{
+								presenceData.details = "Viendo las reglas";
+								// No default
+							}
+							break;
+					}
+				}
+
+				break;
+			}
+			case "leaderboard": {
+				presenceData.details = "Viendo el top de usuarios";
+				break;
+			}
+			case "puntos": {
+				presenceData.details = "Viendo acciones para";
+				presenceData.state = "conseguir puntos";
+
+				break;
+			}
+			case "mybotlist": {
+				if (!route[2]) presenceData.details = "Viendo MyBOT List";
+				else if (route[2] === "bot") {
+					if (!route[3]) {
+						presenceData.details = "Viendo el bot:";
+						presenceData.state =
+							document.querySelector(".card-title").textContent;
+					} else if (route[3] === "add")
+						presenceData.details = "Añadiendo un bot";
+				} else if (route[2].startsWith("tag")) {
+					presenceData.details = "Viendo bots de:";
+					presenceData.state = route[2]
+						.split("?c=")[1]
+						.replace(/^[a-z]/i, c => c.toUpperCase());
+				} else if (route[2] === "me") presenceData.details = "Viendo su perfil";
+				else if (route[2] === "edit") presenceData.details = "Editando un bot";
+
+				break;
+			}
+			case "codes": {
+				presenceData.details = "Viendo los códigos";
+				break;
+			}
+			case "code": {
+				presenceData.details = "Viendo el código:";
+				presenceData.state = document
+					.querySelector(".text-dark")
+					.textContent.slice(2);
+
+				break;
+			}
+			case "comunidad": {
+				if (route[2] === "videos") {
+					presenceData.details = "Viendo videos de la";
+					presenceData.state = "comunidad";
+				}
+
+				break;
+			}
+			case "publicidad": {
+				presenceData.details = "Añadiendo publicidad";
+				break;
+			}
+			case "perfil": {
+				if (!route[2]) presenceData.details = "Viendo su perfil";
+				else if (route[2] === "editar-perfil")
+					presenceData.details = "Editando su perfil";
+
+				break;
+			}
+			case "u": {
+				presenceData.details = "Viendo el perfil de:";
+				presenceData.state = document
+					.querySelector(".username")
+					.textContent.trim();
+
+				break;
+			}
+			// No default
+		}
+	}
+
+	presence.setActivity(presenceData);
 });

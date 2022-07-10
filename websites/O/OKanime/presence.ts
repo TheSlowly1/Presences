@@ -1,76 +1,73 @@
-var presence = new Presence({
-    clientId: "659516842691395585"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    browsing: "presence.activity.browsing"
-  }),
-  video = {
-    duration: 0,
-    currentTime: 0,
-    paused: true
-  };
+const presence = new Presence({
+		clientId: "721747730774491187",
+	}),
+	strings = presence.getStrings({
+		play: "presence.playback.playing",
+		pause: "presence.playback.paused",
+		browsing: "presence.activity.browsing",
+	});
 
-/**
- * Get Timestamps
- * @param {Number} videoTime Current video time seconds
- * @param {Number} videoDuration Video duration seconds
- */
-function getTimestamps(
-  videoTime: number,
-  videoDuration: number
-): Array<number> {
-  var startTime = Date.now();
-  var endTime = Math.floor(startTime / 1000) - videoTime + videoDuration;
-  return [Math.floor(startTime / 1000), endTime];
+interface VideoData {
+	duration: number;
+	currentTime: number;
+	paused: boolean;
 }
 
-presence.on("iFrameData", (data) => {
-  video = data;
+let video: VideoData = {
+	duration: 0,
+	currentTime: 0,
+	paused: true,
+};
+
+presence.on("iFrameData", (data: VideoData) => {
+	video = data;
 });
 
 presence.on("UpdateData", async () => {
-  var data: presenceData = {
-    largeImageKey: "oa"
-  };
+	const presenceData: PresenceData = {
+		largeImageKey: "oa",
+	};
 
-  if (video != null && !isNaN(video.duration) && video.duration > 0) {
-    var timestamps = getTimestamps(
-      Math.floor(video.currentTime),
-      Math.floor(video.duration)
-    );
+	if (video && !isNaN(video.duration) && video.duration > 0) {
+		presenceData.details = document.querySelector(
+			"body div.summary-block > p > a"
+		).textContent;
+		if (
+			document
+				.querySelector("body div.summary-block > p")
+				?.firstChild?.textContent.includes("حلقة")
+		) {
+			presenceData.state = document
+				.querySelector("body div.summary-block > p")
+				.firstChild.textContent.substr(
+					0,
+					document
+						.querySelector("body div.summary-block > p")
+						.firstChild.textContent.indexOf("من")
+				);
+		}
 
-    if (document.querySelector("#content h1 > a")) {
-      data.details = document.querySelector("#content h1 > a").textContent;
-      data.state = document
-        .querySelector("#content h1")
-        .textContent.substr(
-          0,
-          document.querySelector("#content h1").textContent.indexOf("من")
-        );
-    } else {
-      data.details = document.querySelector("#content h3").textContent;
-    }
+		presenceData.smallImageKey = video.paused ? "pause" : "play";
+		presenceData.smallImageText = video.paused
+			? (await strings).pause
+			: (await strings).play;
+		[presenceData.startTimestamp, presenceData.endTimestamp] =
+			presence.getTimestamps(
+				Math.floor(video.currentTime),
+				Math.floor(video.duration)
+			);
 
-    data.smallImageKey = video.paused ? "pause" : "play";
-    data.smallImageText = video.paused
-      ? (await strings).pause
-      : (await strings).play;
-    data.startTimestamp = timestamps[0];
-    data.endTimestamp = timestamps[1];
+		if (video.paused) {
+			delete presenceData.startTimestamp;
+			delete presenceData.endTimestamp;
+		}
 
-    if (video.paused) {
-      delete data.startTimestamp;
-      delete data.endTimestamp;
-    }
+		presence.setActivity(presenceData, !video.paused);
+	} else {
+		presenceData.details = (await strings).browsing;
+		presenceData.smallImageKey = "search";
+		presenceData.smallImageText = (await strings).browsing;
 
-    presence.setActivity(data, !video.paused);
-  } else {
-    data.details = (await strings).browsing;
-    data.smallImageKey = "search";
-    data.smallImageText = (await strings).browsing;
-
-    presence.setActivity(data);
-  }
+		presence.setActivity(presenceData);
+	}
 });

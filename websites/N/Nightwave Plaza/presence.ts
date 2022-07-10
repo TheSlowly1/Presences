@@ -1,31 +1,70 @@
 const presence = new Presence({
-  clientId: "620204628608417832"
+	clientId: "620204628608417832",
 });
 
 presence.on("UpdateData", async () => {
-  if (document.getElementById("player-time").textContent == "Welcome back")
-    return;
-  const ts = document
-    .getElementById("player-time")
-    .textContent.substring(0, 5)
-    .split(":")
-    .map((n) => Number(n));
-  const te = document
-    .getElementById("player-time")
-    .textContent.substring(8, 13)
-    .split(":")
-    .map((n) => Number(n));
-  const presenceData: presenceData = {
-    state: document.getElementById("player-title").textContent,
-    details: document.getElementById("player-artist").textContent,
-    startTimestamp: Date.now() - (ts[0] * 60 + ts[1]) * 1000,
-    endTimestamp:
-      Date.now() - (ts[0] * 60 + ts[1]) * 1000 + (te[0] * 60 + te[1]) * 1000,
-    largeImageKey: "icon",
-    smallImageKey:
-      document.getElementById("player-play").textContent == "Stop"
-        ? "play"
-        : "pause"
-  };
-  presence.setActivity(presenceData);
+	const presenceData: PresenceData = { largeImageKey: "icon" },
+		playerTitle: HTMLDivElement = document.querySelector("div.player-title"),
+		playerArtist: HTMLDivElement = document.querySelector("div.player-artist"),
+		playerTime: HTMLDivElement = document.querySelector("div.player-time"),
+		playBackStatus: HTMLButtonElement =
+			document.querySelector("button.player-play"),
+		listeners: HTMLDivElement = document.querySelector("div.col.cell"),
+		header: NodeListOf<HTMLDivElement> = document.querySelectorAll(
+			".window > .inner > .header.header-draggable.noselect"
+		),
+		songInfo: HTMLDivElement = document.querySelector(".p-2.song-info");
+
+	if (songInfo) {
+		const [artist, album, title] = [...songInfo.querySelectorAll(".mb-1")].map(
+			e => e.textContent
+		);
+		if (artist && album && title) {
+			presenceData.details = `Looking at ${title.substring(
+				8
+			)} by ${artist.substring(10)}`;
+			presenceData.state = `Album: ${album.substring(8)}`;
+		}
+	} else if (header.length === 2) {
+		let rating: HTMLButtonElement;
+		if (header[1].textContent === "Ratings")
+			rating = document.querySelector("button.active");
+		presenceData.details = `Looking at ${rating ? rating.textContent : ""} ${
+			header[1].textContent
+		}`;
+	} else {
+		if (playerTitle) presenceData.state = playerTitle.textContent;
+		if (playerArtist) presenceData.details = playerArtist.textContent;
+
+		if (playBackStatus) {
+			switch (playBackStatus.textContent) {
+				case "Play": {
+					presenceData.smallImageKey = "play";
+					if (listeners) presenceData.smallImageText = listeners.textContent;
+					break;
+				}
+				case "Stop": {
+					presenceData.smallImageKey = "pause";
+					if (listeners) presenceData.smallImageText = listeners.textContent;
+					break;
+				}
+				default:
+					break;
+			}
+		}
+
+		if (playerTime) {
+			const [currentTime, duration] = playerTime.textContent
+				.split("/")
+				.map(time => presence.timestampFromFormat(time));
+
+			[, presenceData.endTimestamp] = presence.getTimestamps(
+				currentTime,
+				duration
+			);
+		}
+	}
+
+	if (presenceData.details) presence.setActivity(presenceData);
+	else presence.setActivity();
 });

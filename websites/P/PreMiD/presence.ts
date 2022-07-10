@@ -1,156 +1,276 @@
-var presence = new Presence({
-    clientId: "688166209736409100"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    browsing: "presence.activity.browsing",
-    reading: "presence.activity.reading"
-  }),
-  host: string,
-  timestamp: any = Math.floor(Date.now() / 1000);
+const presence = new Presence({
+		clientId: "792735245488488458",
+	}),
+	browsingTimestamp = Math.floor(Date.now() / 1000);
 
 // checkmate javascript
 function pathIncludes(string: string): boolean {
-  return document.location.pathname.toLowerCase().includes(string);
+	return document.location.pathname.toLowerCase().includes(string);
 }
 
+async function getStrings() {
+	return presence.getStrings(
+		{
+			browsing: "general.browsing",
+			reading: "general.reading",
+			viewPage: "general.viewPage",
+			viewUser: "general.viewUser",
+			viewPresence: "premid.viewPresence",
+			docs: "premid.docs",
+			home: "premid.pageHome",
+			contributors: "premid.pageContributors",
+			downloads: "premid.pageDownloads",
+			store: "premid.pageStore",
+			cookies: "general.cookie",
+			privacy: "general.privacy",
+			terms: "general.terms",
+			about: "premid.pageAbout",
+			sysreq: "premid.pageSysReq",
+			install: "premid.pageInstall",
+			installFor: "premid.pageInstallFor",
+			yikes: "premid.pageTroubleshooting",
+			start: "premid.pageStart",
+			api: "premid.pageApi",
+			apiPage: "premid.pageApiVersion",
+			presenceDev: "premid.pagePresenceDev",
+			presenceGuide: "premid.pagePresenceGuide",
+			partners: "premid.partners",
+			viewing: "general.viewing",
+			incident: "general.incidentHistory",
+			uptime: "general.uptimeHistory",
+			class: "premid.pagePresenceClass",
+			slideshow: "premid.pageSlideshowClass",
+			iframe: "premid.pageIframe",
+			metadata: "premid.pageMetadata",
+			ts: "premid.pageTs",
+			btnViewPage: "general.buttonViewPage",
+		},
+		await presence.getSetting<string>("lang").catch(() => "en")
+	);
+}
+
+let strings: Awaited<ReturnType<typeof getStrings>>,
+	oldLang: string = null,
+	host: string;
+
 presence.on("UpdateData", async () => {
-  var data: presenceData = {
-    largeImageKey: "lg",
-    startTimestamp: timestamp
-  };
+	const presenceData: PresenceData = {
+			largeImageKey: "lg",
+		},
+		[newLang, time, showButtons] = await Promise.all([
+			presence.getSetting<string>("lang"),
+			presence.getSetting<string>("time"),
+			presence.getSetting<string>("showButtons"),
+		]);
 
-  host = document.location.hostname;
+	if (oldLang !== newLang || !strings) {
+		oldLang = newLang;
+		strings = await getStrings();
+	}
 
-  if (host === "premid.app" || host === "beta.premid.app") {
-    host.includes("beta") ? (data.state = "Beta") : delete data.state;
-    data.smallImageKey = "search";
-    data.smallImageText = (await strings).browsing;
+	if (showButtons) {
+		presenceData.buttons = [
+			{
+				label: strings.btnViewPage,
+				url: window.location.href,
+			},
+		];
+	}
 
-    switch (true) {
-      case pathIncludes("/downloads"):
-        data.details = "Downloads";
-        break;
-      case pathIncludes("/contributors"):
-        data.details = "Contributors";
-        break;
-      case pathIncludes("/beta"):
-        data.details = "Beta";
-        break;
-      case pathIncludes("/partner"):
-        data.details = "Partners";
-        break;
-      case pathIncludes("/cookies"):
-      case pathIncludes("/privacy"):
-      case pathIncludes("/tos"):
-        data.details = "Policies";
-        break;
-      case pathIncludes("/users/"):
-        data.details = document.querySelector("div.user-data p")
-          ? document
-              .querySelector("div.user-data p")
-              .textContent.replace(/[\s\n]+/gi, "")
-          : "...";
-        data.state = "User page";
-        break;
-      case pathIncludes("/store/presences/"):
-        data.details = document.querySelector("h1.presence-name")
-          ? document
-              .querySelector("h1.presence-name")
-              .textContent.replace(/[\s\n]+/gi, "")
-          : "Store";
-        data.state = "Presence page";
-        break;
-      case pathIncludes("/store"):
-        data.details = "Store";
-        break;
-      default:
-        data.details = "Home";
-    }
-  } else if (host === "docs.premid.app") {
-    data.state = "Docs";
-    data.smallImageKey = "reading";
-    data.smallImageText = (await strings).reading;
+	if (time) presenceData.startTimestamp = browsingTimestamp;
 
-    switch (true) {
-      case pathIncludes("/troubleshooting"):
-        data.details = "Troubleshooting";
-        break;
-      case pathIncludes("/install/requirements"):
-        data.details = "System requirements";
-        break;
-      case pathIncludes("/install/windows"):
-        data.details = "Installing on Windows";
-        break;
-      case pathIncludes("/install/macos"):
-        data.details = "Installing on MacOS";
-        break;
-      case pathIncludes("/install/linux"):
-        data.details = "Installing on Linux";
-        break;
-      case pathIncludes("/install/firefox"):
-        data.details = "Installing on Firefox";
-        break;
-      case pathIncludes("/install/chromium"):
-        data.details = "Installing on Chromium-based browsers";
-        break;
-      case pathIncludes("/install"):
-        data.details = "Installation";
-        break;
-      case pathIncludes("/dev/presence/tsconfig"):
-        data.details = "Configuring TypeScript";
-        break;
-      case pathIncludes("/dev/presence/metadata"):
-        data.details = "Configuring metadata.json";
-        break;
-      case pathIncludes("/dev/presence/iframe"):
-        data.details = "Understanding iframe";
-        break;
-      case pathIncludes("/dev/presence/class"):
-        data.details = "Presence class";
-        break;
-      case pathIncludes("/dev/presence"):
-        data.details = "Presence development";
-        break;
-      case pathIncludes("/dev/api/v2"):
-        data.details = "Understanding API v2";
-        break;
-      case pathIncludes("/dev/api/v1"):
-        data.details = "Understanding API v1";
-        break;
-      case pathIncludes("/dev/api"):
-        data.details = "Understanding API";
-        break;
-      case pathIncludes("/dev"):
-        data.details = "Getting started";
-        break;
-      case pathIncludes("/about"):
-        data.details = "About PreMiD";
-        break;
-      case pathIncludes("/home"):
-      default:
-        data.details = "Home";
-    }
-  } else if (host === "status.premid.app") {
-    data.state = "Status page";
-    data.smallImageKey = "search";
-    data.smallImageText = (await strings).browsing;
+	host = document.location.hostname;
 
-    switch (true) {
-      case pathIncludes("/incidents"):
-        data.details =
-          "Viewing: " + document.title.replace("PreMiD Status - ", "");
-        break;
-      case pathIncludes("/history"):
-        data.details = "Incident history";
-        break;
-      case pathIncludes("/uptime"):
-        data.details = "Uptime history";
-        break;
-      default:
-        data.details = "Home";
-    }
-  }
-  presence.setActivity(data);
+	switch (host) {
+		case "premid.app":
+		case "beta.premid.app": {
+			host.includes("beta")
+				? (presenceData.smallImageText = `BETA | ${strings.browsing}`)
+				: (presenceData.smallImageText = strings.browsing);
+			presenceData.smallImageKey = "search";
+
+			let icon;
+
+			switch (true) {
+				case pathIncludes("/downloads"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.downloads;
+					break;
+				case pathIncludes("/contributors"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.contributors;
+					break;
+				case pathIncludes("/beta"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = "BETA";
+					break;
+				case pathIncludes("/partner"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.partners;
+					break;
+				case pathIncludes("/cookies"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.cookies;
+					break;
+				case pathIncludes("/privacy"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.privacy;
+					break;
+				case pathIncludes("/tos"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.terms;
+					break;
+				case pathIncludes("/users/"):
+					icon = document.querySelector<HTMLImageElement>(
+						"div.user-avatar img"
+					)?.src;
+
+					presenceData.details = strings.viewUser;
+					presenceData.state = document.querySelector("div.user-data p")
+						? document
+								.querySelector("div.user-data p")
+								.textContent.replace(/[\s\n]+/gi, "")
+						: "USER NOT FOUND...";
+
+					if (icon) {
+						presenceData.largeImageKey = icon;
+						presenceData.smallImageKey = "lg";
+					}
+					break;
+				case pathIncludes("/store/presences/"):
+					icon = document.querySelector<HTMLImageElement>(
+						"div.header__title div.section img"
+					)?.src;
+
+					presenceData.details = strings.viewPresence;
+					presenceData.state = document.querySelector(
+						".header__title > div > h1"
+					)
+						? document
+								.querySelector(".header__title > div > h1")
+								.textContent.replace(/^\s+|\s+$/g, "")
+						: strings.store;
+
+					if (icon) {
+						presenceData.largeImageKey = icon;
+						presenceData.smallImageKey = "lg";
+					}
+					break;
+				case pathIncludes("/store"):
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.store;
+					break;
+				default:
+					presenceData.details = strings.viewPage;
+					presenceData.state = strings.home;
+			}
+
+			break;
+		}
+		case "docs.premid.app": {
+			presenceData.details = `${strings.docs} | ${strings.viewPage}`;
+			presenceData.smallImageKey = "reading";
+			presenceData.smallImageText = strings.reading;
+
+			switch (true) {
+				case pathIncludes("/troubleshooting"):
+					presenceData.state = strings.yikes;
+					break;
+				case pathIncludes("/install/requirements"):
+					presenceData.state = strings.sysreq;
+					break;
+				case pathIncludes("/install/windows"):
+					presenceData.state = strings.installFor.replace("{0}", "Windows");
+					break;
+				case pathIncludes("/install/macos"):
+					presenceData.state = strings.installFor.replace("{0}", "MacOS");
+					break;
+				case pathIncludes("/install/linux"):
+					presenceData.state = strings.installFor.replace("{0}", "Linux");
+					break;
+				case pathIncludes("/install/firefox"):
+					presenceData.state = strings.installFor.replace("{0}", "Firefox");
+					break;
+				case pathIncludes("/install/chromium"):
+					presenceData.state = strings.installFor.replace(
+						"{0}",
+						"Chromium-based browsers"
+					);
+					break;
+				case pathIncludes("/install"):
+					presenceData.state = strings.install;
+					break;
+				case pathIncludes("/dev/presence/guidelines"):
+					presenceData.state = strings.presenceGuide;
+					break;
+				case pathIncludes("/dev/presence/tsconfig"):
+					presenceData.state = strings.ts;
+					break;
+				case pathIncludes("/dev/presence/metadata"):
+					presenceData.state = strings.metadata;
+					break;
+				case pathIncludes("/dev/presence/iframe"):
+					presenceData.state = strings.iframe;
+					break;
+				case pathIncludes("/dev/presence/class"):
+					presenceData.state = strings.class;
+					break;
+				case pathIncludes("/dev/presence/slideshow"):
+					presenceData.state = strings.slideshow;
+					break;
+				case pathIncludes("/dev/presence"):
+					presenceData.state = strings.presenceDev;
+					break;
+				case pathIncludes("/dev/api/v3"):
+					presenceData.state = strings.apiPage.replace("{0}", "3");
+					break;
+				case pathIncludes("/dev/api/v2"):
+					presenceData.state = strings.apiPage.replace("{0}", "2");
+					break;
+				case pathIncludes("/dev/api/v1"):
+					presenceData.state = strings.apiPage.replace("{0}", "1");
+					break;
+				case pathIncludes("/dev/api"):
+					presenceData.state = strings.api;
+					break;
+				case pathIncludes("/dev"):
+					presenceData.state = strings.start;
+					break;
+				case pathIncludes("/about"):
+					presenceData.state = strings.about;
+					break;
+				case pathIncludes("/home"):
+				default:
+					presenceData.state = strings.home;
+			}
+
+			break;
+		}
+		case "status.premid.app": {
+			presenceData.details = `Status page | ${strings.viewing}`;
+			presenceData.smallImageKey = "search";
+			presenceData.smallImageText = strings.browsing;
+
+			switch (true) {
+				case pathIncludes("/incidents"):
+					presenceData.details = `${strings.viewing} ${document.title.replace(
+						"PreMiD Status - ",
+						""
+					)}`;
+					break;
+				case pathIncludes("/history"):
+					presenceData.state = strings.incident;
+					break;
+				case pathIncludes("/uptime"):
+					presenceData.state = strings.uptime;
+					break;
+				default:
+					presenceData.state = strings.home;
+			}
+
+			break;
+		}
+		// No default
+	}
+	presence.setActivity(presenceData);
 });

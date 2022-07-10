@@ -1,54 +1,66 @@
-{
-  const presence = new Presence({
-    clientId: "610102236374368267"
-  });
-  const strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused"
-  });
+const presence = new Presence({
+		clientId: "610102236374368267",
+	}),
+	strings = presence.getStrings({
+		play: "presence.playback.playing",
+		pause: "presence.playback.paused",
+		live: "presence.activity.live",
+	});
 
-  presence.on("UpdateData", async () => {
-    const player = document.querySelector(".player");
-    if (player) {
-      const title = player.querySelector(".player-cloudcast-title").textContent;
-      const author = player.querySelector(".player-cloudcast-author-link")
-        .textContent;
+let author: string, title: string, url: string, openUrlText: string;
 
-      const elapsed = player
-        .querySelector(".player-time")
-        .textContent.split(":");
-      let elapsedSec;
-      if (elapsed.length === 3) {
-        elapsedSec =
-          parseInt(elapsed[0]) * 60 * 60 +
-          parseInt(elapsed[1]) * 60 +
-          parseInt(elapsed[2]);
-      } else {
-        elapsedSec = parseInt(elapsed[0]) * 60 + parseInt(elapsed[1]);
-      }
+presence.on("UpdateData", async () => {
+	if (document.querySelector("[class^='PlayerControls__PlayerContainer']")) {
+		const normalIsPlaying: boolean =
+				document
+					.querySelector("div[class^='PlayButton__PlayerControl']")
+					?.getAttribute("aria-label") === "Pause",
+			liveIsPlaying: boolean =
+				document
+					.querySelector(
+						"[class^=LiveVideo__VideoContainer] .shaka-play-button"
+					)
+					?.getAttribute("icon") === "pause",
+			isPlaying = normalIsPlaying || liveIsPlaying;
 
-      const isPlaying = player.querySelector(".pause-state") ? true : false;
+		if (normalIsPlaying) {
+			const normalDetails = document.querySelector(
+				"[class^='shared__ShowDetails'] > a:nth-child(1)"
+			);
 
-      const presenceData: presenceData = {
-        details: title,
-        state: author,
-        largeImageKey: "mixcloud",
-        smallImageKey: isPlaying ? "play" : "pause",
-        smallImageText: isPlaying
-          ? (await strings).play
-          : (await strings).pause,
-        startTimestamp: Math.floor(Date.now() / 1000) - elapsedSec
-      };
+			title = normalDetails.textContent;
+			url = new URL(normalDetails.getAttribute("href"), window.location.origin)
+				.href;
+			openUrlText = "Listen to Show";
+			author = document.querySelector(
+				"[class^='PlayerControls__ShowOwnerName']"
+			).textContent;
+		} else if (liveIsPlaying) {
+			url = window.location.href;
+			openUrlText = "View Livestream";
+			title = document.querySelector(
+				"[class^='LiveStreamDetails__StreamTitleContainer'] > h4"
+			).textContent;
+			author = document.querySelector(
+				"[class^='LiveStreamStreamerDetails__StreamerDetailsTextContainer'] h4"
+			).textContent;
+		}
 
-      if (isPlaying) {
-        presence.setTrayTitle(title);
-      } else {
-        delete presenceData.startTimestamp;
-      }
+		const presenceData: PresenceData = {
+			details: title,
+			state: author,
+			largeImageKey: "mixcloud",
+			smallImageKey: isPlaying ? "play" : "pause",
+			smallImageText: isPlaying ? (await strings).play : (await strings).pause,
+			buttons: [{ label: openUrlText, url }],
+		};
 
-      presence.setActivity(presenceData);
-    } else {
-      presence.clearActivity();
-    }
-  });
-}
+		if (liveIsPlaying) {
+			presenceData.smallImageKey = "live";
+			presenceData.smallImageText = (await strings).live;
+		}
+
+		if (isPlaying) presence.setActivity(presenceData);
+		else presence.setActivity();
+	}
+});

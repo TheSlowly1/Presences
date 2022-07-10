@@ -1,101 +1,186 @@
-var presence = new Presence({
-    clientId: "608065709741965327"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    browse: "presence.activity.browsing"
-  });
+const presence = new Presence({
+	clientId: "608065709741965327",
+});
 
-/**
- * Get Timestamps
- * @param {Number} videoTime Current video time seconds
- * @param {Number} videoDuration Video duration seconds
- */
-function getTimestamps(
-  videoTime: number,
-  videoDuration: number
-): Array<number> {
-  var startTime = Date.now();
-  var endTime = Math.floor(startTime / 1000) - videoTime + videoDuration;
-  return [Math.floor(startTime / 1000), endTime];
+async function getStrings() {
+	return presence.getStrings(
+		{
+			play: "presence.playback.playing",
+			pause: "presence.playback.paused",
+			browse: "presence.activity.browsing",
+			reading: "presence.activity.reading",
+			viewManga: "general.viewManga",
+			watchEpisode: "general.buttonViewEpisode",
+			viewSeries: "general.buttonViewSeries",
+			manga: "general.manga",
+			chapter: "general.chapter",
+			page: "general.page",
+		},
+		await presence.getSetting<string>("lang").catch(() => "en")
+	);
 }
 
-var lastPlaybackState = null;
-var playback;
-var browsingStamp = Math.floor(Date.now() / 1000);
+let strings: Awaited<ReturnType<typeof getStrings>>,
+	oldLang: string = null,
+	lastPlaybackState = null,
+	playback: boolean,
+	browsingTimestamp = Math.floor(Date.now() / 1000);
 
-if (lastPlaybackState != playback) {
-  lastPlaybackState = playback;
-  browsingStamp = Math.floor(Date.now() / 1000);
+if (lastPlaybackState !== playback) {
+	lastPlaybackState = playback;
+	browsingTimestamp = Math.floor(Date.now() / 1000);
 }
 
-var iFrameVideo: any, currentTime: any, duration: any, paused: any;
+let iFrameVideo: boolean,
+	currentTime: number,
+	duration: number,
+	paused: boolean;
 
-presence.on("iFrameData", (data) => {
-  playback = data.iframe_video !== null ? true : false;
+interface iFrameData {
+	iFrameVideoData: {
+		iFrameVideo: boolean;
+		currTime: number;
+		dur: number;
+		paused: boolean;
+	};
+}
 
-  if (playback) {
-    iFrameVideo = data.iframe_video.iFrameVideo;
-    currentTime = data.iframe_video.currTime;
-    duration = data.iframe_video.dur;
-    paused = data.iframe_video.paused;
-  }
+presence.on("iFrameData", (data: iFrameData) => {
+	playback = data.iFrameVideoData !== null ? true : false;
+
+	if (playback) {
+		({
+			iFrameVideo,
+			currTime: currentTime,
+			dur: duration,
+			paused,
+		} = data.iFrameVideoData);
+	}
 });
 
 presence.on("UpdateData", async () => {
-  var presenceData: presenceData = {
-    largeImageKey: "lg"
-  };
+	const newLang = await presence.getSetting<string>("lang").catch(() => "en");
+	if (oldLang !== newLang || !strings) {
+		oldLang = newLang;
+		strings = await getStrings();
+	}
 
-  if (!playback) {
-    presenceData.details = (await strings).browse;
-    presenceData.startTimestamp = browsingStamp;
+	const presenceData: PresenceData = {
+		largeImageKey: "lg",
+	};
 
-    delete presenceData.state;
-    delete presenceData.smallImageKey;
+	if (!playback && document.location.pathname.includes("/manga")) {
+		if (document.location.pathname.includes("/read")) {
+			presenceData.details =
+				document.querySelector(".chapter-header a").textContent;
+			presenceData.state = `${(await strings).reading} ${
+				document
+					.querySelector(".chapter-header")
+					.textContent.split("</a>")[1]
+					.split("\n")[0]
+			}`;
+			presenceData.startTimestamp = browsingTimestamp;
+			presenceData.smallImageKey = "book_open";
+			presenceData.smallImageText = `${(await strings).page} ${
+				document.querySelector(".first-page-number").textContent === ""
+					? "1"
+					: document.querySelector(".first-page-number").textContent
+			}/${document.querySelector(".images").children.length}`;
+			presenceData.buttons = [
+				{
+					label: `Read ${(await strings).chapter}`,
+					url: document.location.toString(),
+				},
+			];
+		} else if (document.location.pathname.includes("/volumes")) {
+			presenceData.details = (await strings).viewManga;
+			presenceData.state = document
+				.querySelector(".ellipsis")
+				.textContent.split("&gt;")[1];
+			presenceData.buttons = [
+				{
+					label: `View ${(await strings).manga}`,
+					url: document.location.toString(),
+				},
+			];
+		} else {
+			presenceData.details = (await strings).browse;
+			presenceData.startTimestamp = browsingTimestamp;
 
-    presence.setActivity(presenceData, true);
-  }
+			delete presenceData.state;
+			delete presenceData.smallImageKey;
+		}
 
-  if (iFrameVideo !== false && !isNaN(duration)) {
-    var videoTitle: any, episod: any, episode: any, epName: any;
+		presence.setActivity(presenceData);
+	}
 
-    videoTitle = document.querySelector(".ellipsis .text-link span");
-    episod = document.querySelectorAll("#showmedia_about_media h4");
-    epName = document.querySelector("h4#showmedia_about_name");
-    episode = episod[1].innerText + " - " + epName.innerText;
+	if (!playback && !document.location.pathname.includes("/manga")) {
+		presenceData.details = (await strings).browse;
+		presenceData.startTimestamp = browsingTimestamp;
 
-    var timestamps = getTimestamps(
-      Math.floor(currentTime),
-      Math.floor(duration)
-    );
-    presenceData.smallImageKey = paused ? "pause" : "play";
-    presenceData.smallImageText = paused
-      ? (await strings).pause
-      : (await strings).play;
-    presenceData.startTimestamp = timestamps[0];
-    presenceData.endTimestamp = timestamps[1];
+		delete presenceData.state;
+		delete presenceData.smallImageKey;
 
-    presence.setTrayTitle(
-      paused
-        ? ""
-        : videoTitle !== null
-        ? videoTitle.innerText
-        : "Title not found..."
-    );
+		presence.setActivity(presenceData, true);
+	}
 
-    presenceData.details =
-      videoTitle !== null ? videoTitle.innerText : "Title not found...";
-    presenceData.state = episode;
+	if (iFrameVideo !== false && !isNaN(duration)) {
+		let videoTitle,
+			series: HTMLElement,
+			seriesLink,
+			episode,
+			epName,
+			seasonregex,
+			seasonName;
+		if (document.location.hostname.startsWith("beta")) {
+			seriesLink =
+				document.location.origin +
+				document.querySelector(".show-title-link").getAttribute("href");
+			episode = document.querySelector(
+				".c-heading.c-heading--xs.c-heading--family-type-one.title"
+			).textContent;
+			[, epName] = episode.match(/.* - (.*)/);
+			epName = epName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			seasonregex = new RegExp(`(.*) ${epName} -`);
+			[, seasonName] = document.title.match(seasonregex);
+			videoTitle = seasonName;
+		} else {
+			series = document.querySelector(".ellipsis .text-link");
+			videoTitle = series.textContent;
+			seriesLink = series.getAttribute("href");
+			episode = `${
+				document.querySelectorAll("#showmedia_about_media h4")[1].textContent
+			} - ${document.querySelector("h4#showmedia_about_name").textContent}`;
+		}
+		presenceData.smallImageKey = paused ? "pause" : "play";
+		presenceData.smallImageText = paused
+			? (await strings).pause
+			: (await strings).play;
+		[, presenceData.endTimestamp] = presence.getTimestamps(
+			Math.floor(currentTime),
+			Math.floor(duration)
+		);
 
-    if (paused) {
-      delete presenceData.startTimestamp;
-      delete presenceData.endTimestamp;
-    }
+		presenceData.details = videoTitle ?? "Title not found...";
+		presenceData.state = episode;
 
-    if (videoTitle !== null) {
-      presence.setActivity(presenceData, !paused);
-    }
-  }
+		if (paused) {
+			delete presenceData.startTimestamp;
+			delete presenceData.endTimestamp;
+		}
+
+		if (videoTitle) {
+			presenceData.buttons = [
+				{
+					label: (await strings).watchEpisode,
+					url: document.location.toString(),
+				},
+				{
+					label: (await strings).viewSeries,
+					url: seriesLink,
+				},
+			];
+			presence.setActivity(presenceData, !paused);
+		}
+	}
 });

@@ -1,133 +1,94 @@
-var presence = new Presence({
-  clientId: "612704158826496028"
-});
-
-var browsingStamp = Math.floor(Date.now() / 1000);
-
-var doodleTitle: any;
-
-var homepageImage: any;
-
-var resultsInfo: any, searchTab: any;
-
-var pageInput: any, homepageInput;
-
-homepageInput = document.querySelector(
-  "#tsf > div:nth-child(2) > div.A8SBwf > div.RNNXgb > div > div.a4bIc > input"
-);
-
-homepageImage = document.querySelector("#hplogo");
-
-var imgInput: any = document.querySelector("#REsRA");
+const presence = new Presence({
+		clientId: "612704158826496028",
+	}),
+	browsingTimestamp = Math.floor(Date.now() / 1000),
+	pageInput: HTMLInputElement = document.querySelector("#lst-ib"),
+	homepageInput: HTMLInputElement = document.querySelector('input[name="q"]'),
+	homepageImage: HTMLElement = document.querySelector("#hplogo"),
+	imgInput: HTMLInputElement = document.querySelector("#REsRA");
 
 presence.on("UpdateData", async () => {
-  const presenceData: presenceData = {
-    largeImageKey: "lg"
-  };
+	const presenceData: PresenceData = {
+			largeImageKey: "lg",
+			startTimestamp: browsingTimestamp,
+		},
+		privacy = await presence.getSetting<boolean>("privacy");
 
-  if ((homepageInput && homepageImage) || !document.location.pathname) {
-    presenceData.state = "Home";
+	if ((homepageInput && homepageImage) || !document.location.pathname)
+		presenceData.details = "Home";
+	else if (document.location.pathname.startsWith("/doodles/")) {
+		const doodleResult = new URL(document.location.href).searchParams.get("q"),
+			doodleTitle: HTMLElement = document.querySelector(
+				"#title-card > div > h2"
+			);
 
-    presenceData.startTimestamp = browsingStamp;
+		if (document.location.pathname.includes("/about")) {
+			presenceData.details = "Doodles";
+			presenceData.state = "About";
+		} else if (doodleTitle) {
+			presenceData.details = "Viewing a doodle:";
+			presenceData.state = doodleTitle.textContent;
+		} else if (doodleResult && document.location.pathname === "/doodles/") {
+			presenceData.details = "Searching for a doodle:";
+			presenceData.state = doodleResult;
+			presenceData.smallImageKey = "search";
+		} else {
+			presenceData.details = "Current page:";
+			presenceData.state = "Doodles";
+		}
+	} else if (document.location.pathname.startsWith("/search")) {
+		const searchTab = new URL(document.location.href).searchParams.get("tbm");
+		presenceData.smallImageKey = "search";
 
-    delete presenceData.details;
-  } else if (document.location.pathname.startsWith("/doodles/")) {
-    var searchURL = new URL(document.location.href);
+		if (!searchTab) {
+			presenceData.details = `Searching for ${homepageInput.value}`;
+			presenceData.state = document.querySelector("#result-stats").textContent;
+		} else {
+			switch (searchTab) {
+				case "isch": {
+					presenceData.details = "Google Images";
+					presenceData.state = `Searching for ${imgInput.value}`;
 
-    var doodleResult = searchURL.searchParams.get("q");
+					break;
+				}
+				case "vid": {
+					presenceData.details = "Google Videos";
+					presenceData.state = `Searching for ${pageInput.value}`;
 
-    doodleTitle = document.querySelector("#title-card > div > h2");
+					break;
+				}
+				case "nws": {
+					presenceData.details = "Google News";
+					presenceData.state = `Searching for ${pageInput.value}`;
 
-    if (document.location.pathname.includes("/about")) {
-      presenceData.details = "Doodles";
+					break;
+				}
+				case "bks": {
+					presenceData.details = "Google Books";
+					presenceData.state = `Searching for ${pageInput.value}`;
 
-      presenceData.state = "About";
+					break;
+				}
+				case "fin": {
+					presenceData.details = "Google Finance";
+					presenceData.state = `Searching for ${pageInput.value}`;
 
-      presenceData.startTimestamp = browsingStamp;
-    } else if (doodleTitle != null) {
-      presenceData.details = "Viewing a doodle:";
+					break;
+				}
+				case "pers": {
+					presenceData.details = "Google Personal";
+					presenceData.state = `Searching for ${pageInput.value}`;
 
-      presenceData.state = doodleTitle.innerText;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (doodleResult && document.location.pathname == "/doodles/") {
-      presenceData.details = "Searching for a doodle:";
-
-      presenceData.state = doodleResult;
-
-      presenceData.startTimestamp = browsingStamp;
-
-      presenceData.smallImageKey = "search";
-    } else {
-      presenceData.details = "Current page:";
-
-      presenceData.state = "Doodles";
-
-      presenceData.startTimestamp = browsingStamp;
-    }
-  } else if (document.location.pathname.startsWith("/search")) {
-    searchURL = new URL(document.location.href);
-
-    searchTab = searchURL.searchParams.get("tbm");
-
-    resultsInfo = document.querySelector("#result-stats");
-
-    presenceData.smallImageKey = "search";
-
-    if (!searchTab) {
-      presenceData.details = "Searching for " + homepageInput.value;
-
-      presenceData.state = resultsInfo.textContent;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "isch") {
-      presenceData.details = "Google Images";
-
-      presenceData.state = "Searching for " + imgInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "vid") {
-      pageInput = document.querySelector("#lst-ib");
-
-      presenceData.details = "Google Videos";
-
-      presenceData.state = "Searching for " + pageInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "nws") {
-      pageInput = document.querySelector("#lst-ib");
-
-      presenceData.details = "Google News";
-
-      presenceData.state = "Searching for " + pageInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "bks") {
-      pageInput = document.querySelector("#lst-ib");
-
-      presenceData.details = "Google Books";
-
-      presenceData.state = "Searching for " + pageInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "fin") {
-      pageInput = document.querySelector("#lst-ib");
-
-      presenceData.details = "Google Finance";
-
-      presenceData.state = "Searching for " + pageInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    } else if (searchTab == "pers") {
-      pageInput = document.querySelector("#lst-ib");
-
-      presenceData.details = "Google Personal";
-
-      presenceData.state = "Searching for " + pageInput.value;
-
-      presenceData.startTimestamp = browsingStamp;
-    }
-  }
-
-  presence.setActivity(presenceData);
+					break;
+				}
+				// No default
+			}
+		}
+		if (privacy) {
+			delete presenceData.state;
+			if (presenceData.details.includes("Searching for"))
+				presenceData.details = "Searching";
+		}
+	}
+	presence.setActivity(presenceData);
 });

@@ -1,128 +1,110 @@
-var presence = new Presence({
-    clientId: "620283906234777600"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    live: "presence.activity.live"
-  });
+const presence = new Presence({
+		clientId: "808777200119316521",
+	}),
+	strings = presence.getStrings({
+		play: "presence.playback.playing",
+		pause: "presence.playback.paused",
+		live: "presence.activity.live",
+	});
 
 function checkLength(string: string): string {
-  if (string.length > 128) {
-    return string.substring(0, 125) + "...";
-  } else {
-    return string;
-  }
+	if (string.length > 128) return `${string.substring(0, 125)}...`;
+	else return string;
 }
 
-function getTime(list: string[]): number {
-  var ret = 0;
-  for (let index = list.length - 1; index >= 0; index--) {
-    ret += parseInt(list[index]) * 60 ** index;
-  }
-  return ret;
+function parseAudioTimestamps(
+	audioTime: string,
+	audioDuration: string
+): number[] {
+	const splitAudioTime = audioTime.split(":"),
+		splitAudioDuration = audioDuration.split(":"),
+		startTime = Date.now();
+	return [
+		Math.floor(startTime / 1000),
+		Math.floor(startTime / 1000) -
+			parseInt(splitAudioTime[0]) * 60 +
+			parseInt(splitAudioTime[1]) +
+			parseInt(splitAudioDuration[0]) * 60 +
+			parseInt(splitAudioDuration[1]),
+	];
 }
 
-function getTimestamps(
-  audioTime: string,
-  audioDuration: string
-): Array<number> {
-  var splitAudioTime = audioTime.split(":").reverse();
-  var splitAudioDuration = audioDuration.split(":").reverse();
-
-  var parsedAudioTime = getTime(splitAudioTime);
-  var parsedAudioDuration = getTime(splitAudioDuration);
-
-  var startTime = Date.now();
-  var endTime =
-    Math.floor(startTime / 1000) - parsedAudioTime + parsedAudioDuration;
-  return [Math.floor(startTime / 1000), endTime];
-}
-
-var elapsed = Math.floor(Date.now() / 1000);
-var title, author, song, subtitle;
+let elapsed = Math.floor(Date.now() / 1000),
+	title,
+	author,
+	song,
+	subtitle;
 
 presence.on("UpdateData", async () => {
-  const data: presenceData = {
-    largeImageKey: "iheartradio-logo"
-  };
+	const presenceData: PresenceData = {
+		largeImageKey: "logo",
+	};
+	if (!document.querySelector('[data-test="player-container"]')) {
+		const playerText = document.querySelector('[data-test="player-text"]');
+		if (
+			!document.querySelector('[data-test="controls-container"]').children[1]
+		) {
+			if (
+				!document.querySelector(
+					'[data-test="controls-container"] [data-test-state="PLAYING"]'
+				)
+			) {
+				title = playerText.children[0].textContent;
+				song = playerText.children[1].textContent;
+				author = playerText.children[2]?.textContent;
+				subtitle = `${song}${author ? ` - ${author}` : ""}`;
 
-  var playerCheck = document.querySelector("div.css-s6sc4j.e14pqrjs0")
-    ? true
-    : false;
-  if (playerCheck) {
-    var liveCheck = document.querySelector(
-      "div.css-1gs73tw.e1ka8agw0 time[data-test='player-current-time']"
-    )
-      ? false
-      : true;
-    if (liveCheck) {
-      var playCheck = document.querySelector(
-        "button.ekca8d00 span[aria-labelledby='Stop']"
-      )
-        ? true
-        : false;
-      if (playCheck) {
-        title = document.querySelector(".css-19ebljp").textContent;
-        author = document.querySelector(".css-zzaxa6").textContent;
-        song = document.querySelector(".css-9be0f7").textContent;
-        subtitle = author + " - " + song;
+				title = checkLength(title);
+				presenceData.details = title;
+				subtitle = checkLength(subtitle);
+				presenceData.state = subtitle;
 
-        title = checkLength(title);
-        data.details = title;
-        subtitle = checkLength(subtitle);
-        data.state = subtitle;
+				presenceData.smallImageKey = "live";
+				presenceData.smallImageText = (await strings).live;
+				if (!elapsed) elapsed = Math.floor(Date.now() / 1000);
 
-        data.smallImageKey = "live";
-        data.smallImageText = (await strings).live;
-        if (elapsed === null) {
-          elapsed = Math.floor(Date.now() / 1000);
-        }
-        data.startTimestamp = elapsed;
-        presence.setActivity(data);
-      } else {
-        elapsed = null;
-        presence.clearActivity();
-      }
-    } else {
-      title = document.querySelector(".css-19ebljp").textContent;
-      try {
-        author = document.querySelector(".css-x5q5qs").textContent;
-        song = document.querySelector(".css-9be0f7").textContent;
-        subtitle = author + " - " + song;
-      } catch {
-        author = document.querySelector(".css-x5q5qs").textContent;
-        song = document.querySelector(".css-1uhpu6r").textContent;
-        subtitle = song + " - " + author;
-      }
-      var audioTime = document.querySelector(".css-9dpnv0").textContent;
-      var audioDuration = document.querySelector(".css-xf5pff").textContent;
-      var timestamps = getTimestamps(audioTime, audioDuration);
-      const paused = document.querySelector(
-        "button.ekca8d00 span[aria-labelledby='Play']"
-      )
-        ? true
-        : false;
+				presenceData.startTimestamp = elapsed;
+				presence.setActivity(presenceData);
+			} else {
+				elapsed = null;
+				presence.clearActivity();
+			}
+		} else {
+			const [, timestamp] = document.querySelector(
+				'[data-test="controls-container"]'
+			).children;
 
-      title = checkLength(title);
-      data.details = title;
-      subtitle = checkLength(subtitle);
-      data.state = subtitle;
-      (data.smallImageKey = paused ? "pause" : "play"),
-        (data.smallImageText = paused
-          ? (await strings).pause
-          : (await strings).play),
-        (data.startTimestamp = timestamps[0]),
-        (data.endTimestamp = timestamps[1]);
+			title = playerText.children[0].textContent;
+			song = playerText.children[1].textContent;
+			author = playerText.children[2]?.textContent;
+			subtitle = `${song}${author ? ` - ${author}` : ""}`;
 
-      if (paused) {
-        delete data.startTimestamp;
-        delete data.endTimestamp;
-      }
+			const parsedTimestamps = parseAudioTimestamps(
+					timestamp.children[0].textContent,
+					timestamp.children[2].textContent
+				),
+				paused = !!document.querySelector('[data-test="play-icon"]');
 
-      presence.setActivity(data);
-    }
-  } else {
-    presence.clearActivity();
-  }
+			title = checkLength(title);
+			presenceData.details = title;
+			subtitle = checkLength(subtitle);
+			presenceData.state = subtitle;
+			(presenceData.smallImageKey = paused ? "pause" : "play"),
+				(presenceData.smallImageText = paused
+					? (await strings).pause
+					: (await strings).play),
+				([presenceData.startTimestamp, presenceData.endTimestamp] =
+					presence.getTimestamps(parsedTimestamps[0], parsedTimestamps[1]));
+
+			if (paused) {
+				delete presenceData.startTimestamp;
+				delete presenceData.endTimestamp;
+			}
+
+			presence.setActivity(presenceData);
+		}
+	} else {
+		presenceData.details = "Browsing...";
+		presence.setActivity(presenceData);
+	}
 });

@@ -1,9 +1,8 @@
-* @Alanexei @frozaum @Bas950 @doomlerd
-
-@types/* @Timeraa
-LICENSE @Fruxh
-CONTRIBUTING.md @Alanexei
-package.json @Timeraa @Fruxh @TheDropX
-yarn.lock @Timeraa @Fruxh @TheDropX
-presenceUpdater.ts @Timeraa
-.gitignore @Timeraa @Fruxh
+websites/** @PreMiD/presence-verifiers
+@types/** @PreMiD/administrators @PreMiD/presence-verifiers
+yarn.lock @PreMiD/administrators @PreMiD/presence-verifiers
+.eslintrc.json @PreMiD/administrators @PreMiD/presence-verifiers
+.github/CODEOWNERS @PreMiD/administrators
+.github/CONTRIBUTING.md @PreMiD/administrators @PreMiD/presence-verifiers
+util/tools/translator.ts @PreMiD/presence-verifiers
+util/tools/auto/** @PreMiD/presence-verifiers

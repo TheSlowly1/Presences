@@ -1,24 +1,35 @@
 const presence = new Presence({
-  clientId: "640914619082211338"
-});
-
+		clientId: "640914619082211338",
+	}),
+	browsingTimestamp = Math.floor(Date.now() / 1000);
 presence.on("UpdateData", () => {
-  const title = `${
-    document.querySelector(".player-artist-text").textContent
-  } - ${document.querySelector(".player-title-text").textContent} `;
-  const dj = document.querySelector(".live-name").textContent;
-  const liveTill = document.querySelector(".live-time").textContent;
-  const pageName = document.title.slice(13);
-  const liveTime = liveTill.slice(6);
-  const presenceData: presenceData = {
-    largeImageKey: "tfmlogo",
-    smallImageKey: "smalltfmlogo",
-    smallImageText: `Viewing: ${pageName}`
-  };
+	const presenceData: PresenceData = {
+		largeImageKey: "tfmlogo",
+		startTimestamp: browsingTimestamp,
+	};
 
-  presenceData.details = `${title}`;
-  presenceData.state = `${dj} till ${liveTime}`;
+	presenceData.details = `${
+		document.querySelector(".player-artist-text").textContent
+	} - ${document.querySelector(".player-title-text").textContent}`;
+	presenceData.state =
+		document.querySelector(".live-name").textContent ?? "AutoDJ";
 
-  presence.setActivity(presenceData);
-  presence.setTrayTitle();
+	presenceData.buttons = [
+		{
+			label: "Tune into TFM",
+			url: "https://truckers.fm/listen",
+		},
+	];
+
+	const spotifyUrl = document
+		.querySelector(".player-artist-text a")
+		.getAttribute("href");
+	if (spotifyUrl) {
+		presenceData.buttons.push({
+			label: "Listen on Spotify",
+			url: spotifyUrl,
+		});
+	}
+
+	presence.setActivity(presenceData);
 });

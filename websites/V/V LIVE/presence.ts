@@ -1,463 +1,467 @@
-var genericStyle = "font-weight: 800; padding: 2px 5px; color: white;";
-
-function PMD_info(message): void {
-  console.log(
-    "%cPreMiD%cINFO%c " + message,
-    genericStyle + "border-radius: 25px 0 0 25px; background: #596cae;",
-    genericStyle + "border-radius: 0 25px 25px 0; background: #5050ff;",
-    "color: unset;"
-  );
+const presence = new Presence({
+	clientId: "614386371532161054",
+	injectOnComplete: true,
+});
+async function getStrings() {
+	return presence.getStrings(
+		{
+			play: "general.playing",
+			pause: "general.paused",
+			live: "general.live",
+			browse: "general.browsing",
+			watchingLive: "general.watchingLive",
+			watchingVid: "general.watchingVid",
+			waitingVid: "general.waitingVid",
+			waitingVidThe: "general.waitingVidThe",
+			waitingLive: "general.waitingLive",
+			waitingLiveThe: "general.waitingLiveThe",
+			readingPost: "general.readingPost",
+			readingAbout: "general.readingAbout",
+			searchFor: "general.searchFor",
+			searchSomething: "general.searchSomething",
+			browseThrough: "v live.browseThrough",
+			newVid: "v live.newVid",
+			charts: "v live.charts",
+			upcoming: "v live.upcoming",
+			channelList: "v live.channelList",
+			events: "v live.events",
+			store: "v live.store",
+			recentUploads: "v live.recentUploads",
+			ofChannel: "v live.ofChannel",
+			channelHome: "v live.channelHome",
+			channelSchedule: "v live.channelSchedule",
+			channelMy: "v live.channelMy",
+			channelStore: "v live.channelStore",
+			channelBoard: "v live.channelBoard",
+			product: "v live.product",
+			profileEdit: "v live.profileEdit",
+			viewTheir: "v live.viewTheir",
+			profile: "v live.profile",
+			watched: "v live.watched",
+			purchases: "v live.purchases",
+			coins: "v live.coins",
+			devices: "v live.devices",
+			followed: "v live.followed",
+			policies: "v live.policies",
+		},
+		await presence.getSetting<string>("lang")
+	);
 }
 
-var presence = new Presence({
-    clientId: "614386371532161054" // CLIENT ID FOR YOUR PRESENCE
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    live: "presence.activity.live"
-  });
-
-PMD_info(
-  "An error might be created in console when loading a page, it means that PreMiD is trying to get information too fast. (The information isn't loaded yet.) You may ignore the error if it is created, the presence should still work fine."
-);
-
-/**
- * Get Timestamps
- * @param {Number} videoTime Current video time seconds
- * @param {Number} videoDuration Video duration seconds
- */
-function getTimestamps(
-  videoTime: number,
-  videoDuration: number
-): Array<number> {
-  var startTime = Date.now();
-  var endTime = Math.floor(startTime / 1000) - videoTime + videoDuration;
-  return [Math.floor(startTime / 1000), endTime];
-}
-
-var title: any, uploader: any, search: any, livechecker: any;
-var video: HTMLVideoElement;
-var browsingStamp = Math.floor(Date.now() / 1000);
-var playback: boolean;
+let elapsed = Math.floor(Date.now() / 1000),
+	prevUrl = document.location.href,
+	strings: Awaited<ReturnType<typeof getStrings>>,
+	oldLang: string = null;
 
 presence.on("UpdateData", async () => {
-  // Get the video
-  video = document.querySelector("video._hide_controls");
+	if (document.location.href !== prevUrl) {
+		prevUrl = document.location.href;
+		elapsed = Math.floor(Date.now() / 1000);
+	}
+	const [
+		privacy,
+		showBrowsing,
+		showLive,
+		showVideo,
+		showTimestamps,
+		newLang,
+		vidDetail,
+		vidState,
+		streamDetail,
+		streamState,
+	] = await Promise.all([
+		presence.getSetting<boolean>("privacy"),
+		presence.getSetting<boolean>("browse"),
+		presence.getSetting<boolean>("live"),
+		presence.getSetting<boolean>("video"),
+		presence.getSetting<boolean>("timestamp"),
+		presence.getSetting<string>("lang"),
+		presence.getSetting<string>("vidDetail"),
+		presence.getSetting<string>("vidState"),
+		presence.getSetting<string>("streamDetail"),
+		presence.getSetting<string>("streamState"),
+	]);
 
-  playback = video ? true : false;
+	let presenceData: PresenceData = {
+			largeImageKey: "vlive2",
+			startTimestamp: elapsed,
+		},
+		searchPageValue: string;
 
-  if (!playback) {
-    const pdata: presenceData = {
-      largeImageKey: "vlive2"
-    };
+	if (!privacy) {
+		searchPageValue =
+			document.querySelector<HTMLInputElement>("#searchForm > input")?.value ??
+			"ERROR: NOT FOUND!";
+	}
 
-    pdata.startTimestamp = browsingStamp;
+	if (oldLang !== newLang || !strings) {
+		oldLang = newLang;
+		strings = await getStrings();
+	}
 
-    if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/home/new"
-    ) {
-      pdata.details = "Browsing through the";
-      pdata.smallImageKey = "reading";
-      pdata.state = "new video's page";
+	const path = location.pathname.replace(/\/?$/, "/"),
+		channelPageChannelName = document.querySelector(
+			"#root > div > div > div > nav > div > a > strong"
+		)
+			? document.querySelector(
+					"#root > div > div > div > nav > div > a > strong"
+			  ).textContent
+			: "ERROR: NOT FOUND!",
+		statics: {
+			[name: string]: PresenceData;
+		} = {
+			"/home/new/": {
+				details: strings.browseThrough,
+				state: strings.newVid,
+				smallImageKey: "reading",
+			},
+			"/home/chart/": {
+				details: strings.browseThrough,
+				state: strings.charts,
+				smallImageKey: "reading",
+			},
+			"/home/my/": {
+				details: strings.recentUploads.includes("{0}")
+					? strings.recentUploads.split("{0}")[0]
+					: strings.recentUploads,
+				state: strings.recentUploads.split("{0}")[1],
+				smallImageKey: "reading",
+			},
+			"/my/": {
+				details: strings.viewTheir,
+				state: strings.profile,
+				smallImageKey: "reading",
+			},
+			"/my/profile/": {
+				details: strings.profileEdit.includes("{0}")
+					? strings.profileEdit.split("{0}")[0]
+					: strings.profileEdit,
+				state: strings.profileEdit.split("{0}")[1],
+				smallImageKey: "search",
+			},
+			"/my/watched/": {
+				details: strings.viewTheir,
+				state: strings.watched,
+				smallImageKey: "reading",
+			},
+			"/my/purchased/": {
+				details: strings.viewTheir,
+				state: strings.purchases,
+				smallImageKey: "reading",
+			},
+			"/my/coin/": {
+				details: strings.viewTheir,
+				state: strings.coins,
+				smallImageKey: "reading",
+			},
+			"/my/devices/": {
+				details: strings.viewTheir,
+				state: strings.devices,
+				smallImageKey: "reading",
+			},
+			"/my/channels/": {
+				details: strings.viewTheir,
+				state: strings.followed,
+				smallImageKey: "reading",
+			},
+			"/upcoming/": {
+				details: strings.browseThrough,
+				state: strings.upcoming,
+				smallImageKey: "reading",
+			},
+			"/channels/": {
+				details: strings.browseThrough,
+				state: strings.channelList,
+				smallImageKey: "reading",
+			},
+			"/channel/(\\w*\\d*)/": {
+				details: strings.channelHome,
+				state: strings.ofChannel.replace("{0}", channelPageChannelName),
+				smallImageKey: "reading",
+			},
+			"/channel/(\\w*\\d*)/schedule/": {
+				details: strings.channelSchedule,
+				state: strings.ofChannel.replace("{0}", channelPageChannelName),
+				smallImageKey: "reading",
+			},
+			"/channel/(\\w*\\d*)/my/": {
+				details: strings.channelMy,
+				state: strings.ofChannel.replace("{0}", channelPageChannelName),
+				smallImageKey: "reading",
+			},
+			"/channel/(\\w*\\d*)/store/": {
+				details: strings.channelStore,
+				state: strings.ofChannel.replace("{0}", channelPageChannelName),
+				smallImageKey: "reading",
+			},
+			"/channel/(\\w*\\d*)/board/": {
+				details: strings.channelBoard.replace(
+					"{0}",
+					document.querySelector("#root > div > div > div > div > div > h2")
+						?.textContent ?? "ERROR: NOT FOUND!"
+				),
+				state: strings.ofChannel.replace("{0}", channelPageChannelName),
+				smallImageKey: "reading",
+			},
+			"/events/": {
+				details: strings.browseThrough,
+				state: strings.events,
+				smallImageKey: "reading",
+			},
+			"/vstore/": {
+				details: strings.browseThrough,
+				state: strings.store,
+				smallImageKey: "reading",
+			},
+			"/product/(\\w*\\d*)/": {
+				details: strings.product.replace(
+					"{0}",
+					document.querySelector("a.name")?.textContent ?? "ERROR: NOT FOUND!"
+				),
+				state:
+					document.querySelector("h3.tit")?.textContent ?? "ERROR: NOT FOUND!",
+				smallImageKey: "reading",
+			},
+			"/search/": {
+				details: privacy ? strings.searchSomething : strings.searchFor,
+				state: searchPageValue,
+				smallImageKey: "search",
+			},
+			"/policies/": {
+				details: strings.policies,
+				smallImageKey: "reading",
+			},
+			"/about/": {
+				details: `${strings.readingAbout} V LIVE`,
+				smallImageKey: "reading",
+			},
+		};
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/home/my"
-    ) {
-      pdata.details = "Browsing through their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "followers recent uploads";
+	if (showBrowsing) {
+		for (const [k, v] of Object.entries(statics))
+			if (path.match(k)) presenceData = { ...presenceData, ...v };
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/home/chart")
-    ) {
-      pdata.details = "Browsing through";
-      pdata.smallImageKey = "reading";
-      pdata.state = "the charts page";
+		if (privacy) {
+			presenceData.details = strings.browse;
+			presenceData.smallImageKey = "reading";
+			delete presenceData.state;
+		}
+	}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/upcoming"
-    ) {
-      pdata.details = "Browsing through";
-      pdata.smallImageKey = "reading";
-      pdata.state = "the upcoming page";
+	//* Video page
+	if (path.match("/video/(\\d*)/")) {
+		const video = document.querySelector("video"),
+			badge = document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div > span > em"
+			),
+			title = document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div > span > strong"
+			)
+				? document.querySelector(
+						"#root > div > div > div > div > div > div > div > div > div > span > strong"
+				  ).textContent
+				: "ERROR: NOT FOUND!";
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/channels"
-    ) {
-      pdata.details = "Browsing through";
-      pdata.smallImageKey = "reading";
-      pdata.state = "the channels page";
+		if (video) {
+			if (badge && badge.className.includes("-liveon--")) {
+				//* Is a livestream
+				if (showLive) {
+					if (document.querySelector(".timeBox")) {
+						presenceData.startTimestamp = Math.floor(
+							Date.now() / 1000 -
+								presence.timestampFromFormat(
+									document.querySelector(".timeBox").textContent
+								)
+						);
+					}
+					presenceData.smallImageKey = video.paused ? "pause" : "live";
+					presenceData.smallImageText = video.paused
+						? strings.pause
+						: strings.live;
+					presenceData.details = streamDetail
+						.replace("%title%", title)
+						.replace("%streamer%", channelPageChannelName);
+					presenceData.state = streamState
+						.replace("%title%", title)
+						.replace("%streamer%", channelPageChannelName);
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/events"
-    ) {
-      pdata.details = "Browsing through";
-      pdata.smallImageKey = "reading";
-      pdata.state = "the events page";
+					if (video.paused) delete presenceData.startTimestamp;
+				}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/vstore")
-    ) {
-      pdata.details = "Browsing through";
-      pdata.smallImageKey = "reading";
-      pdata.state = "the store page";
+				//* Privacy mode enabled.
+				if (privacy && showLive) {
+					presenceData.details = strings.watchingLive;
+					delete presenceData.state;
+				} else if (showBrowsing && !showLive) {
+					presenceData.details = strings.browse;
+					presenceData.smallImageKey = "reading";
+					delete presenceData.state;
+				}
+			} else {
+				//* Is a a normal video
+				if (showVideo) {
+					[presenceData.startTimestamp, presenceData.endTimestamp] =
+						presence.getTimestampsfromMedia(video);
+					presenceData.smallImageKey = video.paused ? "pause" : "play";
+					presenceData.smallImageText = video.paused
+						? strings.pause
+						: strings.play;
+					presenceData.details = vidDetail
+						.replace("%title%", title)
+						.replace("%uploader%", channelPageChannelName);
+					presenceData.state = vidState
+						.replace("%title%", title)
+						.replace("%uploader%", channelPageChannelName);
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/product/")
-    ) {
-      search = document.querySelector(
-        "#content > div.title_series_home > div > div > div > div.series_info > div.series_tit > h3"
-      );
-      uploader = document.querySelector(
-        "#content > div.title_series_home > div > div > div > div.series_info > div.series_tit > div > span:nth-child(2) > a"
-      );
+					if (video.paused) {
+						delete presenceData.startTimestamp;
+						delete presenceData.endTimestamp;
+					}
+				}
 
-      pdata.details = "Looking at product by " + uploader.innerText;
-      pdata.smallImageKey = "reading";
-      pdata.state = search.innerText;
+				//* Privacy mode enabled.
+				if (privacy && showVideo) {
+					presenceData.details = strings.watchingVid;
+					delete presenceData.state;
+				} else if (showBrowsing && !showVideo) {
+					presenceData.details = strings.browse;
+					presenceData.smallImageKey = "reading";
+					delete presenceData.state;
+				}
+			}
+		} else if (
+			document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div> div > div > div > strong"
+			)
+		) {
+			//* Video not out yet...
+			if (badge && badge.className.includes("-live--")) {
+				//* Will be a livestream
+				if (showLive) {
+					presenceData.details = streamDetail
+						.replace("%title%", title)
+						.replace("%streamer%", channelPageChannelName);
+					presenceData.state = streamState
+						.replace("%title%", title)
+						.replace("%streamer%", channelPageChannelName);
+					presenceData.smallImageKey = "premiere-live";
+					presenceData.smallImageText = strings.waitingLiveThe;
+				}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/profile"
-    ) {
-      pdata.details = "Editting their";
-      pdata.smallImageKey = "search";
-      pdata.state = "own profile";
+				//* Privacy mode enabled.
+				if (privacy && showLive) {
+					presenceData.details = strings.waitingLive;
+					delete presenceData.state;
+					delete presenceData.smallImageText;
+				} else if (showBrowsing && !showLive) {
+					presenceData.details = strings.browse;
+					presenceData.smallImageKey = "reading";
+					delete presenceData.state;
+					delete presenceData.smallImageText;
+				}
+			} else {
+				//* Will be a normal video
+				if (showVideo) {
+					presenceData.details = vidDetail
+						.replace("%title%", title)
+						.replace("%uploader%", channelPageChannelName);
+					presenceData.state = vidState
+						.replace("%title%", title)
+						.replace("%uploader%", channelPageChannelName);
+					presenceData.smallImageKey = "premiere";
+					presenceData.smallImageText = strings.waitingVidThe;
+				}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/fanship"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "fanships subscriptions";
+				//* Privacy mode enabled.
+				if (privacy && showVideo) {
+					presenceData.details = strings.waitingVid;
+					delete presenceData.state;
+					delete presenceData.smallImageText;
+				} else if (showBrowsing && !showVideo) {
+					presenceData.details = strings.browse;
+					presenceData.smallImageKey = "reading";
+					delete presenceData.state;
+					delete presenceData.smallImageText;
+				}
+			}
+		}
+	}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/watched"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "watched videos";
+	//* Post page
+	if (path.match("/post/(\\d*-\\d*)/")) {
+		const video = document.querySelector("video"),
+			videoTitle = document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div > span > strong"
+			),
+			videoPoster = document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div > div > div > a > span"
+			),
+			postTitle = document.querySelector(
+				"#root > div > div > div > div > div > div > div > strong"
+			),
+			postPoster = document.querySelector(
+				"#root > div > div > div > div > div > div > div > div > div > a > span"
+			);
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/my/purchased")
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "recent purchases";
+		if (video && videoTitle && videoPoster) {
+			//* Has video
+			if (showVideo) {
+				[presenceData.startTimestamp, presenceData.endTimestamp] =
+					presence.getTimestampsfromMedia(video);
+				presenceData.smallImageKey = video.paused ? "pause" : "play";
+				presenceData.smallImageText = video.paused
+					? strings.pause
+					: strings.play;
+				presenceData.details = vidDetail
+					.replace("%title%", videoTitle.textContent)
+					.replace("%uploader%", videoPoster.textContent);
+				presenceData.state = vidState
+					.replace("%title%", videoTitle.textContent)
+					.replace("%uploader%", videoPoster.textContent);
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/coin"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "coin balance";
+				if (video.paused) {
+					delete presenceData.startTimestamp;
+					delete presenceData.endTimestamp;
+				}
+			}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/devices"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "connected devices";
+			//* Privacy mode enabled.
+			if (privacy && showVideo) {
+				presenceData.details = strings.watchingVid;
+				delete presenceData.state;
+			} else if (showBrowsing && !showVideo) {
+				presenceData.details = strings.browse;
+				delete presenceData.state;
+			}
+		} else if (postTitle && postPoster) {
+			//* Normal text post
+			presenceData.details = `${strings.readingPost} (${postPoster.textContent})`;
+			presenceData.state = postTitle.textContent;
+			presenceData.smallImageKey = "reading";
+		}
+	}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "profile page";
+	if (presenceData.details) {
+		if (!showTimestamps) {
+			delete presenceData.startTimestamp;
+			delete presenceData.endTimestamp;
+		}
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname == "/my/channels"
-    ) {
-      pdata.details = "Looking at their";
-      pdata.smallImageKey = "reading";
-      pdata.state = "followed channels";
+		presence.setActivity(presenceData);
 
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/search/")
-    ) {
-      search = document.querySelector("#search_txt3");
+		if (
+			presenceData.details.includes("ERROR: NOT FOUND!") ||
+			(presenceData.state && presenceData.state.includes("ERROR: NOT FOUND!"))
+		) {
+			presence.error(
+				`Unable to find an element...\nPlease contact Bas950#0950 in Discord (https://discord.premid.app/).\nPath: ${path}`
+			);
+		}
+	} else {
+		presence.setActivity();
 
-      pdata.details = "Searching for:";
-      pdata.smallImageKey = "search";
-      pdata.state = search.value;
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/home")
-    ) {
-      search = document.querySelector("#container > channel > div > div > h2");
-
-      pdata.details = "Watching the home page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + search.innerText + "'s channel";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/video")
-    ) {
-      search = document.querySelector("#container > channel > div > div > h2");
-
-      pdata.details = "Watching the video page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + search.innerText + "'s channel";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/celeb/")
-    ) {
-      search = document.querySelector("div p span.se-fs-");
-      uploader = document.querySelector(
-        "#container > smarteditor-view > div > div.header > div > smarteditor-channel-info > div > div.info > a > div.info_area > div"
-      );
-      const test = uploader.innerText.replace("celeb", "");
-
-      pdata.details = "Reading an article by " + test;
-      pdata.smallImageKey = "reading";
-      pdata.state = search.innerText;
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/celeb")
-    ) {
-      search = document.querySelector("#container > channel > div > div > h2");
-
-      pdata.details = "Watching the post page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + search.innerText + "'s channel";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/fan")
-    ) {
-      search = document.querySelector("#container > channel > div > div > h2");
-
-      pdata.details = "Watching the fan page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + search.innerText + "'s channel";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/about")
-    ) {
-      search = document.querySelector("#container > channel > div > div > h2");
-
-      pdata.details = "Watching the about page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + search.innerText + "'s channel";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/fanship/")
-    ) {
-      search = document.querySelector(
-        "#content > div.ticket_section > div > div.ticket_info_area > div > div > h4"
-      );
-      const test = search.innerText.replace("+", "");
-
-      pdata.details = "Watching the fanship page";
-      pdata.smallImageKey = "reading";
-      pdata.state = "of " + test;
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/policies/")
-    ) {
-      pdata.details = "Reading the policies";
-      pdata.smallImageKey = "reading";
-      delete pdata.state;
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "channels.vlive.tv" &&
-      document.location.pathname.includes("/vtoday/")
-    ) {
-      search = document.querySelector("span.se-fs-");
-      uploader = document.querySelector(
-        "#container > smarteditor-view > div > div.header > div > smarteditor-channel-info > div > div.info > a > div.info_area > div"
-      );
-      const test = uploader.innerText.replace("celeb", "");
-
-      pdata.details = "Reading an article by " + test;
-      pdata.smallImageKey = "reading";
-      pdata.state = search.innerText;
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/home"
-    ) {
-      pdata.details = "Browsing the home";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/exclusive"
-    ) {
-      pdata.details = "Browsing the exclusive";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/celeb"
-    ) {
-      pdata.details = "Browsing the celeb";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/music"
-    ) {
-      pdata.details = "Browsing the music";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/tv"
-    ) {
-      pdata.details = "Browsing the tv";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "vtoday.vlive.tv" &&
-      document.location.pathname == "/photo"
-    ) {
-      pdata.details = "Browsing the photo";
-      pdata.smallImageKey = "reading";
-      pdata.state = "page of V Today";
-
-      presence.setActivity(pdata);
-    } else if (
-      document.location.hostname == "www.vlive.tv" &&
-      document.location.pathname.includes("/video/")
-    ) {
-      uploader = document.querySelector(
-        "#content > div.vlive_section > div > div.vlive_top > div.star_profile > div.info_area > a"
-      );
-      search = document.querySelector(
-        "#content > div.vlive_section > div > div.vlive_cont > div.vlive_area > div.vlive_info > strong"
-      );
-      livechecker = document.querySelector(
-        "#content > div.vlive_section > div > div.vlive_cont > div.vlive_area > script"
-      );
-
-      if (livechecker.innerText.includes('"viewType" : "live"')) {
-        pdata.details = uploader.innerText;
-        pdata.smallImageKey = "live";
-        pdata.state = search.innerText;
-        delete pdata.startTimestamp;
-
-        presence.setActivity(pdata);
-      } else if (
-        livechecker.innerText.includes('"viewType" : "liveComingSoon"')
-      ) {
-        pdata.details = "Waiting for livestream by " + uploader.innerText;
-        pdata.smallImageKey = "live";
-        pdata.state = search.innerText;
-        delete pdata.startTimestamp;
-
-        presence.setActivity(pdata);
-      } else {
-        pdata.details = "Waiting for video by " + uploader.innerText;
-        pdata.smallImageKey = "pause";
-        pdata.state = search.innerText;
-
-        presence.setActivity(pdata);
-      }
-    } else {
-      presence.setActivity();
-      presence.setTrayTitle();
-    }
-  }
-
-  // Check if it can find the video
-  if (video !== null && !isNaN(video.duration)) {
-    const timestamps = getTimestamps(
-        Math.floor(video.currentTime),
-        Math.floor(video.duration)
-      ),
-      pdata: presenceData = {
-        details: "",
-        state: "",
-        largeImageKey: "vlive2",
-        smallImageKey: video.paused ? "pause" : "play", // if the video is paused, show the pause icon else the play button
-        smallImageText: video.paused
-          ? (await strings).pause // paused text when you hover the pause icon on discord
-          : (await strings).play,
-        startTimestamp: timestamps[0],
-        endTimestamp: timestamps[1]
-      };
-
-    // Set presence details to the title (innerText - gets the text from the <strong> tag in this case)
-    pdata.details = document.querySelector(
-      "#content > div.vlive_section > div > div.vlive_cont > div.vlive_area > div.vlive_info > strong"
-    ).textContent;
-
-    // Set presence state to views value
-    pdata.state = document.querySelector(
-      "#content > div.vlive_section > div > div.vlive_top > div.star_profile > div.info_area > a"
-    ).textContent;
-
-    //* Remove timestamps if paused
-    if (video.paused) {
-      delete pdata.startTimestamp;
-      delete pdata.endTimestamp;
-    }
-
-    //* If tags are not "null"
-    if (title !== null && uploader !== null) {
-      presence.setActivity(pdata, !video.paused);
-    }
-  }
+		presence.info(
+			`Looks like your current page is unsupported!\nPlease contact Bas950#0950 in Discord (https://discord.premid.app/).\nPath: ${path}`
+		);
+	}
 });

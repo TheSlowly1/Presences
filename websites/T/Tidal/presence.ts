@@ -1,100 +1,105 @@
-var presence = new Presence({
-    clientId: "707985888814039040"
-  }),
-  strings: any = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused"
-  });
+const presence = new Presence({
+	clientId: "901591802342150174",
+});
 
-function getAuthorString(): string {
-  //* Get authors
-  var authors = document.querySelectorAll(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.leftColumn--5B2JF > div.dragItem--3WWiC > div.mediaInformation--1dAUh > div.mediaArtists--3UIyd > a"
-    ) as NodeListOf<HTMLAnchorElement>,
-    authorsArray: Array<HTMLAnchorElement>,
-    authorString: string;
-
-  //* Author tags more than one =>
-  if (authors.length > 1) {
-    //* Convert to js array for .map function
-    authorsArray = Array.from(authors);
-
-    //* Build output string
-    authorString = `${authorsArray
-      .slice(0, authorsArray.length - 1)
-      .map((a) => a.innerText)
-      .join(", ")} - ${authorsArray[authorsArray.length - 1].innerText}`;
-  } else
-    authorString = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.leftColumn--5B2JF > div.dragItem--3WWiC > div.mediaInformation--1dAUh > div.mediaArtists--3UIyd > a"
-    ) as HTMLAnchorElement).innerText;
-
-  return authorString;
+async function getStrings() {
+	return presence.getStrings(
+		{
+			play: "general.playing",
+			pause: "general.paused",
+			viewSong: "general.buttonViewSong",
+		},
+		await presence.getSetting<string>("lang").catch(() => "en")
+	);
 }
 
-/**
- * Get Timestamps
- * @param {Number} videoTime Current video time seconds
- * @param {Number} videoDuration Video duration seconds
- */
-function getTimestamps(
-  videoTime: number,
-  videoDuration: number
-): Array<number> {
-  var startTime = Date.now();
-  var endTime = Math.floor(startTime / 1000) - videoTime + videoDuration;
-  return [Math.floor(startTime / 1000), endTime];
-}
+let strings: Awaited<ReturnType<typeof getStrings>>,
+	oldLang: string = null;
 
 presence.on("UpdateData", async () => {
-  var title = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.leftColumn--5B2JF > div.dragItem--3WWiC > div.mediaInformation--1dAUh > span > a"
-    ) as HTMLElement).innerText,
-    current = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.rightColumn--ZsskN > div:nth-child(2) > time.currentTime--2fCqA"
-    ) as HTMLElement).innerText,
-    fulltime = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.rightColumn--ZsskN > div:nth-child(2) > time.duration--3f3-B"
-    ) as HTMLElement).innerText,
-    playingfrom = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.leftColumn--5B2JF > div.dragItem--3WWiC > div.mediaInformation--1dAUh > div.container--UiaTi.playingFrom--3x_p7 > a > h4"
-    ) as HTMLElement).innerText,
-    playingbutton = (document.querySelector(
-      "#wimp > div > div > div > div.footerPlayer--2d1-L > div.bottomRow--25xS1 > div.centerColumn--1MAnN > div > button.playback-controls__button--white-icon.playbackToggle--1eQO2"
-    ) as HTMLElement).attributes["data-type"];
+	if (!document.querySelector("#footerPlayer"))
+		return presence.setActivity({ largeImageKey: "logo" });
 
-  if (title !== "" && current) {
-    var a = current.replace(":", " ").split(" ").slice(0);
-    var b = fulltime.replace(":", " ").split(" ").slice(0);
-    var a1 = Number(a[0]);
-    var a2 = Number(a[1]);
-    var b1 = Number(b[0]);
-    var b2 = Number(b[1]);
-    var videoCurrent = a1 * 60 + a2;
-    var videoFull = b1 * 60 + b2;
+	const [newLang, timestamps, cover, buttons] = await Promise.all([
+		presence.getSetting<string>("lang").catch(() => "en"),
+		presence.getSetting<boolean>("timestamps"),
+		presence.getSetting<boolean>("cover"),
+		presence.getSetting<boolean>("buttons"),
+	]);
 
-    var timestamps = getTimestamps(
-        Math.floor(videoCurrent),
-        Math.floor(videoFull)
-      ),
-      presenceData: presenceData = {
-        details: playingfrom ? `${title} (From: ${playingfrom})` : title,
-        state: getAuthorString(),
-        largeImageKey: "tidal-logo",
-        smallImageKey: "play",
-        smallImageText: (await strings).play,
-        startTimestamp: timestamps[0],
-        endTimestamp: timestamps[1]
-      };
+	if (oldLang !== newLang || !strings) {
+		oldLang = newLang;
+		strings = await getStrings();
+	}
+	const presenceData: PresenceData = {
+			largeImageKey: "logo",
+		},
+		songTitle = document.querySelector<HTMLAnchorElement>(
+			'div[data-test="footer-track-title"] > a'
+		),
+		currentTime = document
+			.querySelector<HTMLElement>('time[data-test="current-time"]')
+			.textContent.split(":"),
+		endTime = document
+			.querySelector<HTMLElement>('time[data-test="duration"]')
+			.textContent.split(":"),
+		currentTimeSec =
+			(parseFloat(currentTime[0]) * 60 + parseFloat(currentTime[1])) * 1000,
+		paused =
+			document
+				.querySelector('div[data-test="play-controls"] div > button')
+				.getAttribute("data-test") === "play",
+		repeatType = document
+			.querySelector(
+				'div[data-test="play-controls"] > button[data-test="repeat"]'
+			)
+			.getAttribute("aria-label");
 
-    if (playingbutton.textContent === "button__pause") {
-      delete presenceData.startTimestamp;
-      delete presenceData.endTimestamp;
-      presenceData.smallImageKey = "pause";
-      presenceData.smallImageText = (await strings).pause;
-      presence.setTrayTitle();
-    } else presence.setTrayTitle(title);
+	presenceData.details = songTitle.textContent;
+	presenceData.state = document.querySelector(
+		'div[data-test="left-column-footer-player"] > div:nth-child(2) > div:nth-child(2) > span > span > span'
+	).textContent;
 
-    presence.setActivity(presenceData);
-  } else presence.setActivity();
+	if (cover) {
+		presenceData.largeImageKey =
+			navigator.mediaSession.metadata.artwork[0].src.replace(
+				"160x160",
+				"640x640"
+			);
+	}
+	if (currentTimeSec > 0 || !paused) {
+		presenceData.endTimestamp =
+			Date.now() +
+			((parseFloat(endTime[0]) * 60 + parseFloat(endTime[1]) + 1) * 1000 -
+				currentTimeSec);
+		presenceData.smallImageKey = paused ? "pause" : "play";
+		presenceData.smallImageText = paused
+			? (await strings).pause
+			: (await strings).play;
+	}
+
+	if (
+		document
+			.querySelector(
+				'div[data-test="play-controls"] > button[data-test="repeat"]'
+			)
+			.getAttribute("aria-checked") === "true"
+	) {
+		presenceData.smallImageKey =
+			repeatType === "Repeat" ? "repeat" : "repeat-one";
+		presenceData.smallImageText =
+			repeatType === "Repeat" ? "Playlist on loop" : "On loop";
+
+		delete presenceData.endTimestamp;
+	}
+	if (buttons) {
+		presenceData.buttons = [
+			{
+				label: (await strings).viewSong,
+				url: songTitle.href,
+			},
+		];
+	}
+	if (!timestamps) delete presenceData.endTimestamp;
+	presence.setActivity(presenceData);
 });

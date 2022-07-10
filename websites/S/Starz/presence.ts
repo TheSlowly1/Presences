@@ -1,77 +1,80 @@
-var presence = new Presence({
-    clientId: "621854422737354763"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    live: "presence.activity.live"
-  });
+const presence = new Presence({
+		clientId: "768710795449335818",
+	}),
+	strings = presence.getStrings({
+		play: "presence.playback.playing",
+		pause: "presence.playback.paused",
+		live: "presence.activity.live",
+	});
 
 /**
- * Get Timestamps
- * @param {Number} videoTime Current video time seconds
- * @param {Number} videoDuration Video duration seconds
+ * Get the current state text
+ * @param {boolean} paused Is the video paused
+ * @param {boolean} live Is it a live video
  */
-function getTimestamps(
-  videoTime: number,
-  videoDuration: number
-): Array<number> {
-  var startTime = Date.now();
-  var endTime = Math.floor(startTime / 1000) - videoTime + videoDuration;
-  return [Math.floor(startTime / 1000), endTime];
+function getStateText(paused: boolean, live: boolean) {
+	return live ? "Live Broadcast" : paused ? "Paused" : "Watching";
 }
 
-var elapsed = Math.floor(Date.now() / 1000);
-var subtitle;
+let elapsed: number, oldUrl: string;
 
 presence.on("UpdateData", async () => {
-  const data: presenceData = {
-    largeImageKey: "starz-logo"
-  };
+	const presenceData: PresenceData = {
+			largeImageKey: "starz-logo",
+		},
+		{ href, pathname: path } = window.location;
 
-  var video: HTMLVideoElement = document.querySelector(".player-object  video");
-  if (document.location.pathname.startsWith("/livetv")) {
-    data.details = "Watching LiveTV";
-    (data.smallImageKey = "live"), (data.smallImageText = (await strings).live);
-    if (elapsed == null) {
-      elapsed = Math.floor(Date.now() / 1000);
-    }
-    data.startTimestamp = elapsed;
-    presence.setActivity(data);
-  } else if (video && !isNaN(video.duration)) {
-    var title = document.querySelector(".wrapper h2").textContent;
-    var timestamps = getTimestamps(
-      Math.floor(video.currentTime),
-      Math.floor(video.duration)
-    );
-    var subtitleCheck = document.querySelector("h3.slide-title") ? false : true;
+	if (href !== oldUrl) {
+		oldUrl = href;
+		elapsed = Math.floor(Date.now() / 1000);
+	}
 
-    if (subtitleCheck) {
-      subtitle = "Movie";
-    } else {
-      subtitle = document.querySelector("h3.slide-title").textContent;
-    }
+	const video: HTMLVideoElement = document.querySelector(
+		".bitmovinplayer-container video"
+	);
 
-    (data.details = title), (data.state = subtitle);
-    (data.smallImageKey = video.paused ? "pause" : "play"),
-      (data.smallImageText = video.paused
-        ? (await strings).pause
-        : (await strings).play),
-      (data.startTimestamp = timestamps[0]),
-      (data.endTimestamp = timestamps[1]);
+	if (video) {
+		const title = document.querySelector("title")?.textContent,
+			[startTimestamp, endTimestamp] = presence.getTimestamps(
+				Math.floor(video.currentTime),
+				Math.floor(video.duration)
+			),
+			live = endTimestamp === Infinity;
 
-    if (video.paused) {
-      delete data.startTimestamp;
-      delete data.endTimestamp;
-    }
+		presenceData.details = title;
+		presenceData.state = getStateText(video.paused, live);
+		presenceData.smallImageKey = live
+			? "live"
+			: video.paused
+			? "pause"
+			: "play";
+		presenceData.smallImageText = live
+			? (await strings).live
+			: video.paused
+			? (await strings).pause
+			: (await strings).play;
+		presenceData.startTimestamp = live ? elapsed : startTimestamp;
+		if (!live) presenceData.endTimestamp = endTimestamp;
+		if (live) delete presenceData.endTimestamp;
+		if (video.paused) {
+			delete presenceData.startTimestamp;
+			delete presenceData.endTimestamp;
+		}
 
-    if (title !== null && subtitle !== null) {
-      presence.setActivity(data, !video.paused);
-    }
-    elapsed = null;
-  } else {
-    data.details = "Browsing...";
-    presence.setActivity(data);
-    elapsed = null;
-  }
+		if (title) presence.setActivity(presenceData, !video.paused);
+	} else {
+		presenceData.details = "Browsing...";
+		if (path.includes("/series")) presenceData.details = "Browsing Series";
+
+		if (path.includes("/movies")) presenceData.details = "Browsing Movies";
+
+		if (path.includes("/playlist")) presenceData.details = "Browsing Playlist";
+
+		if (path.includes("/schedule")) presenceData.details = "Browsing Schedule";
+
+		if (path.includes("/search")) presenceData.details = "Searching...";
+
+		presenceData.startTimestamp = elapsed;
+		presence.setActivity(presenceData);
+	}
 });

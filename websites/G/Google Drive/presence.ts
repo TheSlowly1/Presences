@@ -1,41 +1,47 @@
 const presence = new Presence({
-  clientId: "630494559956107285"
+	clientId: "630494559956107285",
 });
 
-presence.on("UpdateData", () => {
-  const presenceData: presenceData = {
-      largeImageKey: "drivelogo"
-    },
-    path = document.location.pathname.toLowerCase();
+presence.on("UpdateData", async () => {
+	const presenceData: PresenceData = {
+			largeImageKey: "drivenewlogo",
+			details: "Viewing page:",
+		},
+		path = document.location.pathname
+			.toLowerCase()
+			.replace(/(\/u\/([0-9])+)/g, ""),
+		privacy = await presence.getSetting<boolean>("privacy");
 
-  if (path.startsWith("/drive/folders")) {
-    presenceData.details = "Inside folder :";
-    presenceData.state = document.title.replace("- Google Drive", "");
-  } else if (path.startsWith("/drive/computer")) {
-    presenceData.state = "Viewing linked computers";
-  } else if (path.startsWith("/drive/shared-with-me")) {
-    presenceData.state = "Viewing shared files";
-  } else if (path.startsWith("/drive/recent")) {
-    presenceData.state = "Looking through recently updated files";
-  } else if (path.startsWith("/drive/starred")) {
-    presenceData.state = "Looking through starred files";
-  } else if (path.startsWith("/drive/trash")) {
-    presenceData.state = "Viewing previously deleted files";
-  } else if (path.startsWith("/drive/backups")) {
-    presenceData.state = "Going through backups";
-  } else if (path.startsWith("/drive/quota")) {
-    presenceData.state = "Viewing storage quota";
-  } else if (path.startsWith("/file/")) {
-    const main = document.title.split("."),
-      fileName =
-        main.length == 2 ? main[0] : main.slice(0, -1).join("").toString(),
-      fileExtension = main.slice(-1).toString().replace("- Google Drive", "");
+	if (path.startsWith("/drive/folders")) {
+		presenceData.details = "Viewing a folder";
+		if (!privacy)
+			presenceData.state = document.title.replace("- Google Drive", "");
+	} else if (path.startsWith("/drive/computer"))
+		presenceData.state = "Linked computers";
+	else if (path.startsWith("/drive/shared-with-me"))
+		presenceData.state = "Shared files";
+	else if (path.startsWith("/drive/recent"))
+		presenceData.state = "Recently updated files";
+	else if (path.startsWith("/drive/starred"))
+		presenceData.state = "Starred files";
+	else if (path.startsWith("/drive/trash"))
+		presenceData.state = "Deleted files";
+	else if (path.startsWith("/drive/backups")) presenceData.state = "Backups";
+	else if (path.startsWith("/drive/quota"))
+		presenceData.state = "Storage quota";
+	else if (path.startsWith("/file/")) {
+		const main = document.title.split(".");
+		presenceData.details = "Viewing a file";
+		if (!privacy) {
+			presenceData.state = `${
+				main.length === 2 ? main[0] : main.slice(0, -1).join("").toString()
+			}.${main
+				.slice(-1)
+				.toString()
+				.replace("- Google Drive", "")
+				.toUpperCase()}`;
+		}
+	} else presenceData.details = "Browsing...";
 
-    presenceData.details = `Viewing a file of type ${fileExtension.toUpperCase()} :`;
-    presenceData.state = fileName;
-  } else {
-    presenceData.state = "Browsing...";
-  }
-
-  presence.setActivity(presenceData);
+	presence.setActivity(presenceData);
 });

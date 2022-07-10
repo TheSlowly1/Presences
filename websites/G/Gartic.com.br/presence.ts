@@ -1,28 +1,24 @@
-var presence = new Presence({
-  clientId: "630480364288081942"
-});
-
-var elapsed = Math.floor(Date.now() / 1000);
+const presence = new Presence({
+		clientId: "808757125747966032",
+	}),
+	browsingTimestamp = Math.floor(Date.now() / 1000);
 
 presence.on("UpdateData", async () => {
-  const data: presenceData = {
-    largeImageKey: "gartic-logo"
-  };
+	const presenceData: PresenceData = {
+		largeImageKey: "logo",
+		startTimestamp: browsingTimestamp,
+	};
+	if (document.location.pathname.split("/")[1].match(/^\d/)) {
+		presenceData.details = `${
+			document.querySelector("div.user.proprio .dados span").textContent
+		} - ${document
+			.querySelector("div.user.proprio .dados pre")
+			.textContent.split("pontos")[0]
+			.trim()} points`;
+		presenceData.state = `Lobby: ${
+			document.querySelector("title").textContent.split("-")[0]
+		}`;
+	} else presenceData.details = "Not in-game";
 
-  var gameLink = document.location.pathname.split("/")[1].match(/^\d/)
-    ? true
-    : false;
-  if (gameLink) {
-    var user = document.querySelector("div.user.proprio .dados span")
-      .textContent;
-    var points = document.querySelector("div.user.proprio .dados pre")
-      .textContent;
-    var lobby = document.querySelector("title").innerText;
-    data.details = user + " - " + points.split("pontos")[0].trim() + " points";
-    data.state = "Lobby: " + lobby.split("-")[0];
-    data.startTimestamp = elapsed;
-  } else {
-    data.details = "Not in-game";
-  }
-  presence.setActivity(data);
+	presence.setActivity(presenceData);
 });

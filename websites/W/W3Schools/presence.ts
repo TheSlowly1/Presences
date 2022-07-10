@@ -1,55 +1,46 @@
 const presence = new Presence({
-  clientId: "630239297521319953"
-});
+		clientId: "630239297521319953",
+	}),
+	capitalize = (text: string): string => {
+		return text
+			.replace(/[[{(_)}\]]/g, " ")
+			.split(" ")
+			.map(str => str.charAt(0).toUpperCase() + str.slice(1))
+			.join(" ");
+	},
+	whitelist = ["HTML", "CSS", "SQL", "PHP", "W3.CSS", "JQUERY", "XML"];
 
-const capitalize = (text: string): string => {
-  var texts = text.replace(/[[{(_)}\]]/g, " ").split(" ");
-  return texts
-    .map((str) => {
-      return str.charAt(0).toUpperCase() + str.slice(1);
-    })
-    .join(" ");
-};
-
-var whitelist = ["HTML", "CSS", "SQL", "PHP", "W3.CSS", "JQUERY", "XML"];
-
-var elapsed, oldUrl;
+let elapsed: number, oldUrl: string;
 
 presence.on("UpdateData", () => {
-  var details = undefined,
-    state = undefined;
+	if (window.location.href !== oldUrl) {
+		oldUrl = window.location.href;
+		elapsed = Math.floor(Date.now() / 1000);
+	}
+	const presenceData: PresenceData = {
+			largeImageKey: "w3schools",
+			startTimestamp: elapsed,
+		},
+		language = document.querySelector(".w3-bar-item.w3-button.active"),
+		lesson = document.querySelector("#main > h1"),
+		exercise = document.querySelector("#completedExercisesNo");
 
-  if (window.location.href !== oldUrl) {
-    oldUrl = window.location.href;
-    elapsed = Math.floor(Date.now() / 1000);
-  }
+	if (language) {
+		presenceData.details = `Learning ${capitalize(
+			language.textContent.toLowerCase()
+		)}`;
+		if (whitelist.includes(language.textContent))
+			presenceData.details = `Learning ${language.textContent}`;
+	}
 
-  var language = document.querySelector(".w3-bar-item.w3-button.active");
-  var lesson = document.querySelector("#main > h1");
+	if (lesson) presenceData.state = lesson.textContent;
 
-  var exercise = document.querySelector("#completedExercisesNo");
+	if (exercise) {
+		presenceData.details = `${capitalize(
+			window.location.pathname.split("/")[1]
+		)} Exercise`;
+		[presenceData.state] = exercise.textContent.match("[0-9](.*)[0-9]");
+	}
 
-  if (language) {
-    details = "Learning " + capitalize(language.textContent.toLowerCase());
-    if (whitelist.some((lang) => lang === language.textContent))
-      details = "Learning " + language.textContent;
-  }
-
-  if (lesson) {
-    state = lesson.textContent;
-  }
-
-  if (exercise) {
-    details = `${capitalize(window.location.pathname.split("/")[1])} Exercise`;
-    state = exercise.textContent.match("[0-9](.*)[0-9]")[0];
-  }
-
-  var data: presenceData = {
-    details: details,
-    state: state,
-    largeImageKey: "w3schools",
-    startTimestamp: elapsed
-  };
-
-  presence.setActivity(data);
+	presence.setActivity(presenceData);
 });

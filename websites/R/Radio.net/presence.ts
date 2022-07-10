@@ -1,159 +1,176 @@
 const presence = new Presence({
-    clientId: "634124614544392193"
-  }),
-  strings = presence.getStrings({
-    play: "presence.playback.playing",
-    pause: "presence.playback.paused",
-    search: "presence.activity.searching",
-    browsing: "presence.activity.browsing"
-  });
+	clientId: "634124614544392193",
+});
 
-var lastPath = ""; //Last played radio station or podcast
-var browsingStamp = 0; //Timestamp when started listening to a radio station
+let oldLang: string,
+	newLang: string,
+	strings: Awaited<ReturnType<typeof getStrings>>,
+	timestamp: number;
 
 presence.on("UpdateData", async () => {
-  const path = window.location.pathname.split("/").slice(1);
-  const presenceData: presenceData = {
-    details: "Radio.net",
-    largeImageKey: "logo_big"
-  };
+	const host = window.location.hostname.split("."),
+		path = window.location.pathname.split("/").slice(1),
+		presenceData: PresenceData = {
+			largeImageKey: "logo_big",
+		};
 
-  switch (path[0]) {
-    case "s": //Radio
-    case "p": {
-      //Podcast
-      if (path[1] != lastPath || browsingStamp == 0)
-        browsingStamp = Date.now() / 1000;
-      const playerIcon = document.querySelector(
-        ".player__animate-icon"
-      ) as HTMLElement;
-      const name = document.querySelector("h1") as HTMLElement; //Current Radio / Podcast
-      const info = document.querySelector("div.player__song") as HTMLElement; //Current Song / Episode
-      const status = document.querySelector(
-        ".player__info-wrap"
-      ) as HTMLElement; //Player Status
+	oldLang = newLang;
+	newLang = await presence.getSetting<string>("lang").catch(() => "en");
+	if (!strings || oldLang !== newLang) strings = await getStrings(newLang);
 
-      if (playerIcon.style.display != "none") {
-        //Playing
-        presenceData.details = name.innerText;
-        presenceData.state = info.innerText;
+	if (host[0] === "corporate") {
+		// Corporate page
+		switch (path[0]) {
+			// About us, Broadcasters, Advertising, Press, Jobs, Contact
+			case "about-us":
+			case "ueber-uns":
+			case "broadcasters":
+			case "sender":
+			case "advertising":
+			case "werbung":
+			case "press":
+			case "presse":
+			case "jobs":
+			case "contact":
+			case "kontakt": {
+				const item: string =
+					document.querySelector<HTMLLIElement>(
+						".current_page_item"
+					).textContent;
 
-        presenceData.smallImageText = (await strings).play;
-        presenceData.smallImageKey = "play";
+				presenceData.details = `${host.join(".")} corporate`;
+				presenceData.state =
+					item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
+				break;
+			}
+			default:
+				return presence.setActivity();
+		}
+	} else {
+		// Main page
+		switch (path[0]) {
+			// Radio station
+			case "s":
+				// Check if the animation icon is shown
+				if (
+					document.querySelector<HTMLSpanElement>(".player__animate-icon").style
+						.display !== "none"
+				) {
+					// Radio is playing / buffering
+					timestamp ||= Date.now();
 
-        presenceData.startTimestamp = browsingStamp;
-        if (path[0] == "p") {
-          const start = (document.querySelector(
-            ".player__timing-wrap > span:nth-child(1)"
-          ) as HTMLElement).innerText
-            .split(":")
-            .reverse();
-          const end = (document.querySelector(
-            ".player__timing-wrap > span:nth-child(3)"
-          ) as HTMLElement).innerText
-            .split(":")
-            .reverse();
+					presenceData.details =
+						document.querySelector<HTMLHeadingElement>("h1").textContent;
+					presenceData.state =
+						document.querySelector<HTMLDivElement>(".player__song").textContent;
+					presenceData.largeImageKey = (
+						document.querySelector<HTMLDivElement>("#station").children[3]
+							.children[1].firstChild.firstChild.firstChild as HTMLImageElement
+					).src;
+					presenceData.smallImageText = strings.play;
+					presenceData.smallImageKey = "play";
+					presenceData.startTimestamp = timestamp;
+				} else {
+					// Radio is paused
+					timestamp = 0;
 
-          //Create a timestamp when the podcast started playing
-          if (start.length > 0) {
-            presenceData.startTimestamp -= parseInt(start[0]) * 60;
-          }
-          if (start.length > 1) {
-            presenceData.startTimestamp -= parseInt(start[0]) * 60 * 60;
-          }
-          if (start.length > 2) {
-            presenceData.startTimestamp -= parseInt(start[0]) * 60 * 60 * 24;
-          }
+					presenceData.details =
+						document.querySelector<HTMLHeadingElement>("h1").textContent;
+					presenceData.largeImageKey = (
+						document.querySelector<HTMLDivElement>("#station").children[3]
+							.children[1].firstChild.firstChild.firstChild as HTMLImageElement
+					).src;
+					presenceData.smallImageText = strings.pause;
+					presenceData.smallImageKey = "pause";
+				}
+				break;
+			// Podcast
+			case "p":
+				// Check if the animation icon is shown
+				if (
+					document.querySelector<HTMLSpanElement>(".player__animate-icon").style
+						.display !== "none"
+				) {
+					// Podcast is playing / buffering
+					const times = document
+							.querySelector<HTMLDivElement>(".player__timing-wrap")
+							.textContent.split("|"),
+						timestamps = presence.getTimestamps(
+							presence.timestampFromFormat(times[0]),
+							presence.timestampFromFormat(times[1])
+						);
 
-          //Add the length of the podcast in seconds to the timestamp
-          presenceData.endTimestamp = presenceData.startTimestamp;
-          if (end.length > 0) {
-            presenceData.endTimestamp += parseInt(start[0]) * 60;
-          }
-          if (end.length > 1) {
-            presenceData.endTimestamp += parseInt(start[0]) * 60 * 60;
-          }
-          if (end.length > 2) {
-            presenceData.endTimestamp += parseInt(start[0]) * 60 * 60 * 24;
-          }
-        }
-      } else {
-        //Paused
-        browsingStamp = 0;
-
-        presenceData.details = name.innerText;
-
-        presenceData.smallImageText = (await strings).pause;
-        presenceData.smallImageKey = "pause";
-
-        if (status.style.display != "none") {
-          const adlength = status.innerText.match(/\d+/g)
-            ? parseInt(status.innerText.match(/\d+/g)[0])
-            : 0;
-
-          if (adlength > 0) {
-            presenceData.state = "Currently watching an ad";
-
-            presenceData.startTimestamp = Math.floor(Date.now() / 1000);
-            presenceData.endTimestamp = presenceData.startTimestamp + adlength;
-          } else {
-            presenceData.state = status.innerText;
-          }
-        }
-      }
-      break;
-      //Search
-    }
-    case "search": {
-      browsingStamp = 0;
-      const results = document.querySelector("h1").innerText.match(/\d+/g)[0];
-
-      presenceData.details = new URLSearchParams(window.location.search).get(
-        "q"
-      );
-      presenceData.state = `${results} results`;
-
-      presenceData.smallImageKey = "search";
-      presenceData.smallImageText = (await strings).search;
-      break;
-      //Genre / Topic
-    }
-    case "genre":
-    case "topic": //Country / City
-    case "country":
-    case "city": //Local Stations / Top 100 Stations
-    case "local-stations":
-    case "top-stations":
-      browsingStamp = 0;
-
-      presenceData.details = document.querySelector("h1").innerText;
-
-      presenceData.smallImageKey = "reading";
-      presenceData.smallImageText = (await strings).browsing;
-      break;
-    //My Profile / Recently Played / My Favorites
-    case "profile":
-    case "recents":
-    case "favorites":
-      browsingStamp = 0;
-
-      presenceData.details = document.title;
-      break;
-    //Smartphone Apps
-    case "iphone":
-    case "ipad":
-    case "android":
-    case "windowsphone":
-    case "blackberry":
-      browsingStamp = 0;
-
-      presenceData.details = document.title;
-      break;
-    //Unknown
-    default:
-      presence.setTrayTitle();
-      presence.setActivity();
-      return;
-  }
-  presence.setActivity(presenceData);
+					presenceData.details =
+						document.querySelector<HTMLHeadingElement>("h1").textContent;
+					presenceData.state =
+						document.querySelector<HTMLDivElement>(".player__song").textContent;
+					presenceData.largeImageKey = (
+						document.querySelector<HTMLDivElement>("#podcast").children[1]
+							.children[1].firstChild.firstChild.firstChild as HTMLImageElement
+					).src;
+					presenceData.smallImageText = strings.play;
+					presenceData.smallImageKey = "play";
+					[presenceData.startTimestamp, presenceData.endTimestamp] = timestamps;
+				} else {
+					// Podcast is paused
+					presenceData.details =
+						document.querySelector<HTMLHeadingElement>("h1").textContent;
+					presenceData.state =
+						document.querySelector<HTMLDivElement>(".player__song").textContent;
+					presenceData.largeImageKey = (
+						document.querySelector<HTMLDivElement>("#podcast").children[1]
+							.children[1].firstChild.firstChild.firstChild as HTMLImageElement
+					).src;
+					presenceData.smallImageText = strings.pause;
+					presenceData.smallImageKey = "pause";
+				}
+				break;
+			// Search
+			case "search":
+				presenceData.details = new URLSearchParams(window.location.search).get(
+					"q"
+				);
+				presenceData.state =
+					document.querySelector<HTMLHeadingElement>("h1").textContent;
+				presenceData.smallImageText = strings.search;
+				presenceData.smallImageKey = "search";
+				break;
+			// Genre, Topic, Country, City, Local stations, Top stations
+			case "genre":
+			case "topic":
+			case "country":
+			case "city":
+			case "local-stations":
+			case "top-stations":
+				presenceData.details =
+					document.querySelector<HTMLHeadingElement>("h1").textContent;
+				presenceData.smallImageText = strings.browsing;
+				presenceData.smallImageKey = "reading";
+				break;
+			// Choose your country, Contact, App, Terms and conditions, Privacy policy, Imprint
+			case "country-selector":
+			case "contact":
+			case "app":
+			case "terms-and-conditions":
+			case "privacy-policy":
+			case "imprint":
+				presenceData.details = document.title;
+				break;
+			// Startpage, Unknown
+			default:
+				return presence.setActivity();
+		}
+	}
 });
+
+async function getStrings(lang: string) {
+	return presence.getStrings(
+		{
+			play: "general.playing",
+			pause: "general.paused",
+			search: "general.searching",
+			browsing: "general.browsing",
+		},
+		lang
+	);
+}
